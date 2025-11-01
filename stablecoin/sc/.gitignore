@@ -1,0 +1,13 @@
+# Build output
+out/
+cache/
+
+# Foundry
+forge-cache/
+
+# Dependencies
+lib/
+
+# Local
+.env
+

@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+*.lcov
+.nyc_output
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Production
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Debug
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env*.local
+.env.production
+.env.development
+
+# Foundry / Forge
+out/
+forge-cache/
+cache/
+broadcast/
+
+# Misc
+.DS_Store
+*.log
+*.tmp
+.cache/
+
+# OS
+Thumbs.db
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# IPFS
+.ipfs/
+
+# Local development
+anvil-*.log
+
