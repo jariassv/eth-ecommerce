@@ -6,6 +6,7 @@ import { useEcommerce } from '@/hooks/useEcommerce';
 import { Product } from '@/lib/contracts';
 import ProductCard from '@/components/ProductCard';
 import Header from '@/components/Header';
+import FloatingCartButton from '@/components/FloatingCartButton';
 
 export default function Home() {
   const { provider, address } = useWallet();
@@ -143,6 +144,9 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Botón flotante de carrito */}
+      <FloatingCartButton />
     </div>
   );
 }

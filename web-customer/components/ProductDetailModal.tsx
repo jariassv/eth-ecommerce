@@ -103,13 +103,21 @@ export default function ProductDetailModal({
 
     setAdding(true);
     try {
-      await addToCart(product.productId, BigInt(quantity));
+      const txHash = await addToCart(product.productId, BigInt(quantity));
+      console.log('Producto agregado al carrito, transacción:', txHash);
+      
+      // Esperar un momento para que la transacción se procese
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       if (onAddToCart) {
         onAddToCart();
       }
+      // Disparar evento global para actualizar el contador del carrito
+      window.dispatchEvent(new CustomEvent('cartUpdated'));
       alert(`Se agregaron ${quantity} unidades al carrito`);
       onClose();
     } catch (err: any) {
+      console.error('Error al agregar al carrito:', err);
       alert(err.message || 'Error al agregar al carrito');
     } finally {
       setAdding(false);

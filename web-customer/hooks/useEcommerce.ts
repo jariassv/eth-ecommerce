@@ -131,12 +131,16 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
 
   // Carrito
   const getCart = useCallback(async (): Promise<CartItem[]> => {
-    if (!contract || !address) throw new Error('Wallet no conectada');
+    // getCart requiere msg.sender, necesitamos usar contractWithSigner
+    if (!contractWithSigner || !address) {
+      // Si no hay wallet conectado, retornar array vacío
+      return [];
+    }
     
     setLoading(true);
     setError(null);
     try {
-      const cart = await contract.getCart();
+      const cart = await contractWithSigner.getCart();
       return cart.map((item: any) => ({
         productId: BigInt(item.productId.toString()),
         quantity: BigInt(item.quantity.toString()),
@@ -147,17 +151,22 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     } finally {
       setLoading(false);
     }
-  }, [contract, address]);
+  }, [contractWithSigner, address]);
 
-  const addToCart = useCallback(async (productId: bigint, quantity: bigint): Promise<void> => {
+  const addToCart = useCallback(async (productId: bigint, quantity: bigint): Promise<string> => {
     if (!contractWithSigner) throw new Error('Wallet no conectada');
     
     setLoading(true);
     setError(null);
     try {
+      console.log('Agregando al carrito:', { productId: productId.toString(), quantity: quantity.toString() });
       const tx = await contractWithSigner.addToCart(productId, quantity);
-      await tx.wait();
+      console.log('Transacción enviada:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('Transacción confirmada:', receipt);
+      return receipt.hash;
     } catch (err: any) {
+      console.error('Error en addToCart:', err);
       if (err.code === 4001) {
         throw new Error('Transacción rechazada por el usuario');
       }
@@ -188,12 +197,15 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
   }, [contractWithSigner]);
 
   const getCartTotal = useCallback(async (): Promise<bigint> => {
-    if (!contract || !address) throw new Error('Wallet no conectada');
+    // getCartTotal requiere msg.sender, necesitamos usar contractWithSigner
+    if (!contractWithSigner || !address) {
+      return BigInt(0);
+    }
     
     setLoading(true);
     setError(null);
     try {
-      const total = await contract.getCartTotal();
+      const total = await contractWithSigner.getCartTotal();
       return BigInt(total.toString());
     } catch (err: any) {
       setError(err.message || 'Error al obtener total del carrito');
@@ -201,7 +213,7 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     } finally {
       setLoading(false);
     }
-  }, [contract, address]);
+  }, [contractWithSigner, address]);
 
   // Facturas
   const createInvoice = useCallback(async (companyId: bigint): Promise<{ invoiceId: bigint; totalAmount: bigint }> => {
