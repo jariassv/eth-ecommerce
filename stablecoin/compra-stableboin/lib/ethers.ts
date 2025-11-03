@@ -52,8 +52,13 @@ export async function getTokenBalance(
     console.log(`🌐 Usando API route como proxy para RPC`);
     
     try {
-      // Crear un provider que use la API route
-      const proxyUrl = '/api/rpc';
+      // Obtener la URL base (necesario para JsonRpcProvider)
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const proxyUrl = `${baseUrl}/api/rpc`;
+      
+      console.log(`   Proxy URL: ${proxyUrl}`);
+      
+      // Crear un provider que use la API route con URL completa
       const provider = new ethers.JsonRpcProvider(proxyUrl);
       
       // ABI mínimo para balanceOf
@@ -71,7 +76,7 @@ export async function getTokenBalance(
     } catch (error) {
       console.error('❌ Error al obtener balance:', error);
       if (error instanceof Error) {
-        if (error.message.includes('fetch') || error.message.includes('Network')) {
+        if (error.message.includes('fetch') || error.message.includes('Network') || error.message.includes('UNSUPPORTED')) {
           throw new Error('Error de red. Verifica que Anvil esté corriendo en http://localhost:8545');
         }
       }
