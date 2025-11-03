@@ -338,20 +338,20 @@ contract Ecommerce is Ownable {
     function updateCartItem(uint256 productId, uint256 quantity) external {
         if (quantity == 0) {
             // Llamar a removeFromCart directamente
-            uint256 itemCount = cartItemCounts[msg.sender];
-            for (uint256 i = 0; i < itemCount; i++) {
+            uint256 cartItemCount = cartItemCounts[msg.sender];
+            for (uint256 i = 0; i < cartItemCount; i++) {
                 bytes32 key = keccak256(abi.encodePacked(msg.sender, i));
                 if (cartItems[key].productId == productId) {
                     // Mover el último elemento a la posición actual
-                    if (i < itemCount - 1) {
-                        bytes32 lastKey = keccak256(abi.encodePacked(msg.sender, itemCount - 1));
+                    if (i < cartItemCount - 1) {
+                        bytes32 lastKey = keccak256(abi.encodePacked(msg.sender, cartItemCount - 1));
                         cartItems[key] = cartItems[lastKey];
                         delete cartItems[lastKey];
                     } else {
                         delete cartItems[key];
                     }
                     unchecked {
-                        cartItemCounts[msg.sender] = itemCount - 1;
+                        cartItemCounts[msg.sender] = cartItemCount - 1;
                     }
                     return;
                 }
