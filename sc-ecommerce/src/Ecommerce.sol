@@ -8,6 +8,7 @@ import "./libraries/CompanyLib.sol";
 import "./libraries/ProductLib.sol";
 import "./libraries/InvoiceLib.sol";
 import "./libraries/PaymentLib.sol";
+import "./libraries/ReviewLib.sol";
 
 /**
  * @title Ecommerce
@@ -18,12 +19,14 @@ contract Ecommerce is Ownable {
     using ProductLib for ProductLib.Storage;
     using InvoiceLib for InvoiceLib.Storage;
     using PaymentLib for PaymentLib.Storage;
+    using ReviewLib for ReviewLib.Storage;
 
     // Storages de las librerías
     CompanyLib.Storage private companyStorage;
     ProductLib.Storage private productStorage;
     InvoiceLib.Storage private invoiceStorage;
     PaymentLib.Storage private paymentStorage;
+    ReviewLib.Storage private reviewStorage;
     
     // Cart storage - directamente en el contrato para evitar problemas con mappings en structs
     mapping(bytes32 => Types.CartItem) private cartItems; // keccak256(customerAddress, index) -> CartItem
@@ -68,6 +71,13 @@ contract Ecommerce is Ownable {
         uint256 indexed companyId,
         uint256 amount,
         bytes32 paymentTxHash
+    );
+
+    event ReviewAdded(
+        uint256 indexed reviewId,
+        uint256 indexed productId,
+        address indexed customer,
+        uint256 rating
     );
 
     /**
@@ -536,13 +546,20 @@ contract Ecommerce is Ownable {
 
         require(success, "Ecommerce: transfer failed");
 
-        // Reducir stock de los productos
+        // Reducir stock de los productos y marcar como comprados para reviews
         Types.CartItem[] memory items = InvoiceLib.getInvoiceItems(invoiceStorage, invoiceId);
         for (uint256 i = 0; i < items.length; i++) {
             ProductLib.reduceStock(
                 productStorage,
                 items[i].productId,
                 items[i].quantity
+            );
+            
+            // Marcar que el cliente compró este producto (para reviews verificados)
+            ReviewLib.markProductPurchased(
+                reviewStorage,
+                msg.sender,
+                items[i].productId
             );
         }
 
@@ -580,6 +597,100 @@ contract Ecommerce is Ownable {
         Types.Invoice memory invoice = invoiceStorage.getInvoice(invoiceId);
         return paymentStorage.hasSufficientBalance(msg.sender, invoice.totalAmount) &&
                paymentStorage.hasSufficientAllowance(msg.sender, invoice.totalAmount);
+    }
+
+    // ============ REVIEWS ============
+
+    /**
+     * @dev Agregar un review de un producto
+     * @param productId ID del producto
+     * @param rating Calificación (1-5 estrellas)
+     * @param comment Comentario del review
+     * @return reviewId ID del review creado
+     */
+    function addReview(
+        uint256 productId,
+        uint256 rating,
+        string memory comment
+    ) external returns (uint256) {
+        uint256 reviewId = reviewStorage.addReview(
+            productId,
+            msg.sender,
+            rating,
+            comment,
+            invoiceStorage
+        );
+        
+        emit ReviewAdded(reviewId, productId, msg.sender, rating);
+        return reviewId;
+    }
+
+    /**
+     * @dev Obtener información de un review
+     * @param reviewId ID del review
+     * @return review Datos del review
+     */
+    function getReview(
+        uint256 reviewId
+    ) external view returns (Types.Review memory) {
+        return reviewStorage.getReview(reviewId);
+    }
+
+    /**
+     * @dev Obtener todos los reviews de un producto
+     * @param productId ID del producto
+     * @return reviews Array de reviews
+     */
+    function getProductReviews(
+        uint256 productId
+    ) external view returns (Types.Review[] memory) {
+        return reviewStorage.getProductReviews(productId);
+    }
+
+    /**
+     * @dev Obtener todos los reviews de un cliente
+     * @return reviews Array de reviews del cliente
+     */
+    function getMyReviews() external view returns (Types.Review[] memory) {
+        return reviewStorage.getCustomerReviews(msg.sender);
+    }
+
+    /**
+     * @dev Calcular el rating promedio de un producto
+     * @param productId ID del producto
+     * @return averageRating Rating promedio (multiplicado por 100, ej: 450 = 4.50)
+     * @return reviewCount Cantidad de reviews
+     */
+    function getProductAverageRating(
+        uint256 productId
+    ) external view returns (uint256 averageRating, uint256 reviewCount) {
+        return reviewStorage.getProductAverageRating(productId);
+    }
+
+    /**
+     * @dev Verificar si el cliente compró un producto (para dejar review)
+     * @param productId ID del producto
+     * @return bool True si el cliente compró el producto
+     */
+    function hasPurchasedProduct(uint256 productId) external view returns (bool) {
+        return reviewStorage.hasPurchasedProduct(msg.sender, productId);
+    }
+
+    /**
+     * @dev Obtener la cantidad total de reviews
+     * @return uint256 Cantidad total de reviews
+     */
+    function getReviewCount() external view returns (uint256) {
+        return reviewStorage.getReviewCount();
+    }
+
+    /**
+     * @dev Obtener la cantidad de reviews de un producto
+     * @param productId ID del producto
+     * @return uint256 Cantidad de reviews
+     */
+    function getProductReviewCount(uint256 productId) external view returns (uint256) {
+        return reviewStorage.getProductReviewCount(productId);
     }
 }
 
