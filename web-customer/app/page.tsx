@@ -7,12 +7,15 @@ import { Product } from '@/lib/contracts';
 import ProductCard from '@/components/ProductCard';
 import Header from '@/components/Header';
 import FloatingCartButton from '@/components/FloatingCartButton';
+import ProductFilters from '@/components/ProductFilters';
 
 export default function Home() {
   const { provider, address } = useWallet();
-  const { getAllProducts, loading, error, isReady } = useEcommerce(provider, address);
-  const [products, setProducts] = useState<Product[]>([]);
+  const { getAllProducts, getCompany, loading, error, isReady } = useEcommerce(provider, address);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [companies, setCompanies] = useState<Map<bigint, string>>(new Map());
 
   useEffect(() => {
     if (isReady) {
@@ -28,8 +31,25 @@ export default function Home() {
 
     setLoadingProducts(true);
     try {
-      const allProducts = await getAllProducts();
-      setProducts(allProducts);
+      const products = await getAllProducts();
+      setAllProducts(products);
+      setFilteredProducts(products);
+
+      // Cargar información de empresas
+      const companiesMap = new Map<bigint, string>();
+      const uniqueCompanyIds = new Set(products.map((p) => p.companyId));
+      
+      for (const companyId of uniqueCompanyIds) {
+        try {
+          const company = await getCompany(companyId);
+          companiesMap.set(companyId, company.name);
+        } catch (err) {
+          console.error(`Error loading company ${companyId}:`, err);
+          companiesMap.set(companyId, `Empresa #${companyId.toString()}`);
+        }
+      }
+      
+      setCompanies(companiesMap);
     } catch (err) {
       console.error('Error loading products:', err);
     } finally {
@@ -85,7 +105,11 @@ export default function Home() {
                 Catálogo de Productos
               </h2>
               <p className="text-gray-600">
-                {products.length > 0 ? `${products.length} productos disponibles` : 'Explora nuestros productos'}
+                {filteredProducts.length > 0 
+                  ? `${filteredProducts.length} de ${allProducts.length} productos`
+                  : allProducts.length > 0 
+                    ? `0 de ${allProducts.length} productos`
+                    : 'Explora nuestros productos'}
               </p>
             </div>
           </div>
@@ -109,7 +133,7 @@ export default function Home() {
               <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-indigo-600 border-t-transparent"></div>
               <p className="mt-4 text-gray-600 text-lg font-medium">Cargando productos...</p>
             </div>
-          ) : products.length === 0 ? (
+          ) : allProducts.length === 0 ? (
             <div className="text-center py-16 bg-white rounded-2xl shadow-md border border-gray-200">
               <svg className="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
@@ -122,14 +146,42 @@ export default function Home() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
-              {products.map((product) => (
-                <ProductCard
-                  key={product.productId.toString()}
-                  product={product}
-                  onAddToCart={loadProducts}
+            <div className="flex flex-col lg:flex-row gap-6">
+              {/* Panel de Filtros */}
+              <div className="lg:w-64 flex-shrink-0">
+                <ProductFilters
+                  products={allProducts}
+                  onFilterChange={setFilteredProducts}
+                  companies={companies}
                 />
-              ))}
+              </div>
+
+              {/* Grid de Productos */}
+              <div className="flex-1">
+                {filteredProducts.length === 0 ? (
+                  <div className="text-center py-16 bg-white rounded-2xl shadow-md border border-gray-200">
+                    <svg className="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      No se encontraron productos
+                    </h3>
+                    <p className="text-gray-600 max-w-md mx-auto">
+                      Intenta ajustar los filtros para ver más resultados.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 lg:gap-8">
+                    {filteredProducts.map((product) => (
+                      <ProductCard
+                        key={product.productId.toString()}
+                        product={product}
+                        onAddToCart={loadProducts}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </section>
