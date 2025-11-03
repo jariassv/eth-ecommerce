@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./libraries/Types.sol";
 import "./libraries/CompanyLib.sol";
 import "./libraries/ProductLib.sol";
-import "./libraries/CartLib.sol";
 import "./libraries/InvoiceLib.sol";
 import "./libraries/PaymentLib.sol";
 
@@ -17,16 +16,18 @@ import "./libraries/PaymentLib.sol";
 contract Ecommerce is Ownable {
     using CompanyLib for CompanyLib.Storage;
     using ProductLib for ProductLib.Storage;
-    using CartLib for CartLib.Storage;
     using InvoiceLib for InvoiceLib.Storage;
     using PaymentLib for PaymentLib.Storage;
 
     // Storages de las librerías
     CompanyLib.Storage private companyStorage;
     ProductLib.Storage private productStorage;
-    CartLib.Storage private cartStorage;
     InvoiceLib.Storage private invoiceStorage;
     PaymentLib.Storage private paymentStorage;
+    
+    // Cart storage - directamente en el contrato para evitar problemas con mappings en structs
+    mapping(bytes32 => Types.CartItem) private cartItems; // keccak256(customerAddress, index) -> CartItem
+    mapping(address => uint256) private cartItemCounts; // Customer address -> item count
 
     // Eventos
     event CompanyRegistered(
@@ -268,7 +269,27 @@ contract Ecommerce is Ownable {
             "Ecommerce: insufficient stock"
         );
 
-        cartStorage.addToCart(msg.sender, productId, quantity);
+        // Implementación directa del carrito
+        uint256 itemCount = cartItemCounts[msg.sender];
+        for (uint256 i = 0; i < itemCount; i++) {
+            bytes32 key = keccak256(abi.encodePacked(msg.sender, i));
+            Types.CartItem storage item = cartItems[key];
+            if (item.productId == productId) {
+                item.quantity += quantity;
+                emit AddedToCart(msg.sender, productId, quantity);
+                return;
+            }
+        }
+
+        // Si no está en el carrito, agregarlo
+        bytes32 newKey = keccak256(abi.encodePacked(msg.sender, itemCount));
+        cartItems[newKey] = Types.CartItem({
+            productId: productId,
+            quantity: quantity
+        });
+        unchecked {
+            cartItemCounts[msg.sender] = itemCount + 1;
+        }
         emit AddedToCart(msg.sender, productId, quantity);
     }
 
@@ -277,7 +298,24 @@ contract Ecommerce is Ownable {
      * @param productId ID del producto a remover
      */
     function removeFromCart(uint256 productId) external {
-        cartStorage.removeFromCart(msg.sender, productId);
+        uint256 itemCount = cartItemCounts[msg.sender];
+        for (uint256 i = 0; i < itemCount; i++) {
+            bytes32 key = keccak256(abi.encodePacked(msg.sender, i));
+            if (cartItems[key].productId == productId) {
+                // Mover el último elemento a la posición actual
+                if (i < itemCount - 1) {
+                    bytes32 lastKey = keccak256(abi.encodePacked(msg.sender, itemCount - 1));
+                    cartItems[key] = cartItems[lastKey];
+                    delete cartItems[lastKey];
+                } else {
+                    delete cartItems[key];
+                }
+                unchecked {
+                    cartItemCounts[msg.sender] = itemCount - 1;
+                }
+                break;
+            }
+        }
     }
 
     /**
@@ -286,13 +324,53 @@ contract Ecommerce is Ownable {
      * @param quantity Nueva cantidad (0 para eliminar)
      */
     function updateCartItem(uint256 productId, uint256 quantity) external {
-        if (quantity > 0) {
-            require(
-                productStorage.hasStock(productId, quantity),
-                "Ecommerce: insufficient stock"
-            );
+        if (quantity == 0) {
+            // Llamar a removeFromCart directamente
+            uint256 itemCount = cartItemCounts[msg.sender];
+            for (uint256 i = 0; i < itemCount; i++) {
+                bytes32 key = keccak256(abi.encodePacked(msg.sender, i));
+                if (cartItems[key].productId == productId) {
+                    // Mover el último elemento a la posición actual
+                    if (i < itemCount - 1) {
+                        bytes32 lastKey = keccak256(abi.encodePacked(msg.sender, itemCount - 1));
+                        cartItems[key] = cartItems[lastKey];
+                        delete cartItems[lastKey];
+                    } else {
+                        delete cartItems[key];
+                    }
+                    unchecked {
+                        cartItemCounts[msg.sender] = itemCount - 1;
+                    }
+                    return;
+                }
+            }
+            return;
         }
-        cartStorage.updateCartItem(msg.sender, productId, quantity);
+
+        require(
+            productStorage.hasStock(productId, quantity),
+            "Ecommerce: insufficient stock"
+        );
+
+        uint256 itemCount = cartItemCounts[msg.sender];
+        for (uint256 i = 0; i < itemCount; i++) {
+            bytes32 key = keccak256(abi.encodePacked(msg.sender, i));
+            if (cartItems[key].productId == productId) {
+                cartItems[key].quantity = quantity;
+                return;
+            }
+        }
+
+        // Si no existe, agregarlo (llamada interna directa)
+        bytes32 newKey = keccak256(abi.encodePacked(msg.sender, itemCount));
+        cartItems[newKey] = Types.CartItem({
+            productId: productId,
+            quantity: quantity
+        });
+        unchecked {
+            cartItemCounts[msg.sender] = itemCount + 1;
+        }
+        emit AddedToCart(msg.sender, productId, quantity);
     }
 
     /**
@@ -300,7 +378,15 @@ contract Ecommerce is Ownable {
      * @return items Array de items en el carrito
      */
     function getCart() external view returns (Types.CartItem[] memory) {
-        return cartStorage.getCart(msg.sender);
+        uint256 itemCount = cartItemCounts[msg.sender];
+        Types.CartItem[] memory cart = new Types.CartItem[](itemCount);
+        
+        for (uint256 i = 0; i < itemCount; i++) {
+            bytes32 key = keccak256(abi.encodePacked(msg.sender, i));
+            cart[i] = cartItems[key];
+        }
+        
+        return cart;
     }
 
     /**
@@ -308,14 +394,29 @@ contract Ecommerce is Ownable {
      * @return total Monto total del carrito
      */
     function getCartTotal() external view returns (uint256) {
-        return cartStorage.calculateTotal(msg.sender, productStorage);
+        uint256 itemCount = cartItemCounts[msg.sender];
+        uint256 total = 0;
+
+        for (uint256 i = 0; i < itemCount; i++) {
+            bytes32 key = keccak256(abi.encodePacked(msg.sender, i));
+            Types.CartItem memory item = cartItems[key];
+            Types.Product memory product = productStorage.getProduct(item.productId);
+            total += product.price * item.quantity;
+        }
+
+        return total;
     }
 
     /**
      * @dev Limpiar el carrito
      */
     function clearCart() external {
-        cartStorage.clearCart(msg.sender);
+        uint256 itemCount = cartItemCounts[msg.sender];
+        for (uint256 i = 0; i < itemCount; i++) {
+            bytes32 key = keccak256(abi.encodePacked(msg.sender, i));
+            delete cartItems[key];
+        }
+        cartItemCounts[msg.sender] = 0;
     }
 
     // ============ FACTURAS ============
@@ -329,10 +430,18 @@ contract Ecommerce is Ownable {
     function createInvoice(
         uint256 companyId
     ) external returns (uint256, uint256) {
-        (uint256 invoiceId, uint256 totalAmount) = invoiceStorage.createInvoice(
+        // Obtener el carrito actual del usuario
+        uint256 itemCount = cartItemCounts[msg.sender];
+        Types.CartItem[] memory cart = new Types.CartItem[](itemCount);
+        for (uint256 i = 0; i < itemCount; i++) {
+            bytes32 key = keccak256(abi.encodePacked(msg.sender, i));
+            cart[i] = cartItems[key];
+        }
+        
+        (uint256 invoiceId, uint256 totalAmount) = invoiceStorage.createInvoiceFromCart(
             msg.sender,
             companyId,
-            cartStorage,
+            cart,
             productStorage
         );
 

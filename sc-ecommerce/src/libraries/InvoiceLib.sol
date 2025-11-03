@@ -2,8 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "./Types.sol";
-import "./CompanyLib.sol";
-import "./CartLib.sol";
 import "./ProductLib.sol";
 
 /**
@@ -14,11 +12,18 @@ library InvoiceLib {
     // Storage layout
     struct Storage {
         mapping(uint256 => Types.Invoice) invoices;
-        mapping(uint256 => mapping(uint256 => Types.CartItem)) invoiceItems; // invoiceId -> index -> CartItem
+        mapping(bytes32 => Types.CartItem) invoiceItems; // keccak256(invoiceId, index) -> CartItem
         mapping(uint256 => uint256) invoiceItemCounts; // invoiceId -> item count
         mapping(address => uint256[]) invoicesByCustomer; // Customer address -> InvoiceIds[]
         mapping(uint256 => uint256[]) invoicesByCompany; // CompanyId -> InvoiceIds[]
         uint256 invoiceCount;
+    }
+    
+    /**
+     * @dev Calcular la clave del mapping para un item de factura
+     */
+    function _getInvoiceItemKey(uint256 invoiceId, uint256 index) private pure returns (bytes32) {
+        return keccak256(abi.encodePacked(invoiceId, index));
     }
 
     // Storage slot
@@ -38,22 +43,20 @@ library InvoiceLib {
      * @dev Crear una factura desde el carrito
      * @param customerAddress Dirección del cliente
      * @param companyId ID de la empresa
-     * @param cartStorage Storage de CartLib
+     * @param cart Array de items del carrito
      * @param productStorage Storage de ProductLib
      * @return invoiceId ID de la factura creada
      * @return totalAmount Monto total de la factura
      */
-    function createInvoice(
+    function createInvoiceFromCart(
         Storage storage self,
         address customerAddress,
         uint256 companyId,
-        CartLib.Storage storage cartStorage,
+        Types.CartItem[] memory cart,
         ProductLib.Storage storage productStorage
     ) internal returns (uint256, uint256) {
         require(customerAddress != address(0), "InvoiceLib: invalid customer address");
         require(companyId > 0, "InvoiceLib: invalid companyId");
-
-        Types.CartItem[] memory cart = CartLib.getCart(cartStorage, customerAddress);
         require(cart.length > 0, "InvoiceLib: cart is empty");
 
         // Filtrar items del carrito que pertenecen a esta empresa
@@ -99,7 +102,8 @@ library InvoiceLib {
         for (uint256 i = 0; i < cart.length; i++) {
             Types.Product memory product = ProductLib.getProduct(productStorage, cart[i].productId);
             if (product.companyId == companyId && product.isActive) {
-                self.invoiceItems[invoiceId][itemIndex] = cart[i];
+                bytes32 key = _getInvoiceItemKey(invoiceId, itemIndex);
+                self.invoiceItems[key] = cart[i];
                 itemIndex++;
             }
         }
@@ -139,7 +143,8 @@ library InvoiceLib {
         Types.CartItem[] memory items = new Types.CartItem[](itemCount);
         
         for (uint256 i = 0; i < itemCount; i++) {
-            items[i] = self.invoiceItems[invoiceId][i];
+            bytes32 key = _getInvoiceItemKey(invoiceId, i);
+            items[i] = self.invoiceItems[key];
         }
         
         return items;
