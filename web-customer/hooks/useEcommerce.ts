@@ -199,7 +199,7 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
   const getCartTotal = useCallback(async (): Promise<bigint> => {
     // getCartTotal requiere msg.sender, necesitamos usar contractWithSigner
     if (!contractWithSigner || !address) {
-      return 0n;
+      return BigInt(0);
     }
     
     setLoading(true);
