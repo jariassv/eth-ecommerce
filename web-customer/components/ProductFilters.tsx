@@ -147,20 +147,20 @@ export default function ProductFilters({ products, onFilterChange, companies }: 
   return (
     <>
       {/* Botón para abrir/cerrar en móvil */}
-      <div className="lg:hidden mb-4">
+      <div className="lg:hidden mb-6">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors"
+          className="w-full flex items-center justify-between px-6 py-4 bg-white border-2 border-gray-300 rounded-xl shadow-md hover:bg-gray-50 hover:border-indigo-300 transition-all"
         >
-          <span className="font-semibold text-gray-900">Filtros</span>
-          <div className="flex items-center gap-2">
+          <span className="text-lg font-bold text-gray-900">Filtros</span>
+          <div className="flex items-center gap-3">
             {activeFiltersCount > 0 && (
-              <span className="px-2 py-1 bg-indigo-600 text-white text-xs font-bold rounded-full">
+              <span className="px-3 py-1 bg-indigo-600 text-white text-sm font-bold rounded-full">
                 {activeFiltersCount}
               </span>
             )}
             <svg
-              className={`w-5 h-5 text-gray-600 transform transition-transform ${isOpen ? 'rotate-180' : ''}`}
+              className={`w-6 h-6 text-gray-600 transform transition-transform ${isOpen ? 'rotate-180' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -175,25 +175,25 @@ export default function ProductFilters({ products, onFilterChange, companies }: 
       <div
         className={`
           ${isOpen ? 'block' : 'hidden lg:block'}
-          bg-white rounded-xl shadow-lg border border-gray-200 p-6 h-fit sticky top-4
+          bg-white rounded-xl shadow-lg border border-gray-200 p-8 h-fit sticky top-4
         `}
       >
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold text-gray-900">Filtros</h3>
+        <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-200">
+          <h3 className="text-xl font-bold text-gray-900">Filtros</h3>
           {activeFiltersCount > 0 && (
             <button
               onClick={clearFilters}
-              className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+              className="text-sm text-indigo-600 hover:text-indigo-700 font-semibold transition-colors"
             >
               Limpiar
             </button>
           )}
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-8">
           {/* Búsqueda */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-base font-semibold text-gray-900 mb-3">
               Buscar
             </label>
             <input
@@ -201,16 +201,16 @@ export default function ProductFilters({ products, onFilterChange, companies }: 
               value={filters.searchTerm}
               onChange={(e) => handleFilterChange({ searchTerm: e.target.value })}
               placeholder="Nombre o descripción..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
             />
           </div>
 
           {/* Rango de precios */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-base font-semibold text-gray-900 mb-3">
               Rango de Precio (USDT)
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               <input
                 type="number"
                 value={filters.minPrice}
@@ -218,7 +218,7 @@ export default function ProductFilters({ products, onFilterChange, companies }: 
                 placeholder={`Min: ${priceRange.min.toFixed(2)}`}
                 min="0"
                 step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               />
               <input
                 type="number"
@@ -227,10 +227,10 @@ export default function ProductFilters({ products, onFilterChange, companies }: 
                 placeholder={`Max: ${priceRange.max.toFixed(2)}`}
                 min="0"
                 step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               />
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm text-gray-600 mt-2">
               ${priceRange.min.toFixed(2)} - ${priceRange.max.toFixed(2)}
             </p>
           </div>
@@ -238,22 +238,22 @@ export default function ProductFilters({ products, onFilterChange, companies }: 
           {/* Filtrar por empresa */}
           {companies.size > 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-base font-semibold text-gray-900 mb-3">
                 Empresa
               </label>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
                 {Array.from(companies.entries()).map(([companyId, companyName]) => (
                   <label
                     key={companyId.toString()}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                    className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-3 rounded-lg transition-colors"
                   >
                     <input
                       type="checkbox"
                       checked={filters.selectedCompanies.has(companyId)}
                       onChange={() => handleCompanyToggle(companyId)}
-                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                      className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer"
                     />
-                    <span className="text-sm text-gray-700">{companyName}</span>
+                    <span className="text-base text-gray-700">{companyName}</span>
                   </label>
                 ))}
               </div>
@@ -261,27 +261,27 @@ export default function ProductFilters({ products, onFilterChange, companies }: 
           )}
 
           {/* Solo en stock */}
-          <div>
-            <label className="flex items-center gap-2 cursor-pointer">
+          <div className="pt-2">
+            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-gray-50 transition-colors">
               <input
                 type="checkbox"
                 checked={filters.inStockOnly}
                 onChange={(e) => handleFilterChange({ inStockOnly: e.target.checked })}
-                className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer"
               />
-              <span className="text-sm font-medium text-gray-700">Solo productos en stock</span>
+              <span className="text-base font-semibold text-gray-700">Solo productos en stock</span>
             </label>
           </div>
 
           {/* Ordenar por */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-base font-semibold text-gray-900 mb-3">
               Ordenar por
             </label>
             <select
               value={filters.sortBy}
               onChange={(e) => handleFilterChange({ sortBy: e.target.value as FilterState['sortBy'] })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent cursor-pointer transition-all"
             >
               <option value="name">Nombre (A-Z)</option>
               <option value="price-asc">Precio: Menor a Mayor</option>

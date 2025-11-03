@@ -146,9 +146,9 @@ export default function Home() {
               </p>
             </div>
           ) : (
-            <div className="flex flex-col lg:flex-row gap-6">
+            <div className="flex flex-col lg:flex-row gap-8">
               {/* Panel de Filtros */}
-              <div className="lg:w-64 flex-shrink-0">
+              <div className="lg:w-80 flex-shrink-0">
                 <ProductFilters
                   products={allProducts}
                   onFilterChange={setFilteredProducts}
