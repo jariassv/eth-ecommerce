@@ -413,6 +413,7 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
   // Reviews
   const addReview = useCallback(async (productId: bigint, rating: bigint, comment: string): Promise<bigint> => {
     if (!contractWithSigner) throw new Error('Wallet no conectada');
+    if (!contract) throw new Error('Contrato no inicializado');
     
     setLoading(true);
     setError(null);
