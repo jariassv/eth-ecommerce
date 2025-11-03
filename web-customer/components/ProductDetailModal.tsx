@@ -6,6 +6,7 @@ import { formatTokenAmount } from '@/lib/ethers';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { useWallet } from '@/hooks/useWallet';
 import { getIPFSImageUrl, getNextIPFSGateway } from '@/lib/ipfs';
+import ProductReviews from './ProductReviews';
 
 interface ProductDetailModalProps {
   product: Product;
@@ -361,6 +362,9 @@ export default function ProductDetailModal({
               )}
             </div>
           </div>
+
+          {/* Reviews Section */}
+          <ProductReviews product={product} onReviewAdded={() => {}} />
         </div>
       </div>
     </div>

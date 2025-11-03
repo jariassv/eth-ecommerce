@@ -9,6 +9,7 @@ import {
   Product,
   CartItem,
   Invoice,
+  Review,
 } from '@/lib/contracts';
 
 // Helper para crear un provider si no hay uno disponible
@@ -409,6 +410,118 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     }
   }, [contract]);
 
+  // Reviews
+  const addReview = useCallback(async (productId: bigint, rating: bigint, comment: string): Promise<bigint> => {
+    if (!contractWithSigner) throw new Error('Wallet no conectada');
+    
+    setLoading(true);
+    setError(null);
+    try {
+      console.log('Agregando review:', { productId: productId.toString(), rating: rating.toString(), comment });
+      const tx = await contractWithSigner.addReview(productId, rating, comment);
+      console.log('Transacción enviada:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('Transacción confirmada:', receipt);
+      
+      // Buscar el evento ReviewAdded para obtener el reviewId
+      const event = receipt.logs.find((log: any) => {
+        try {
+          const parsed = contract.interface.parseLog(log);
+          return parsed?.name === 'ReviewAdded';
+        } catch {
+          return false;
+        }
+      });
+      
+      if (event) {
+        const parsed = contract.interface.parseLog(event);
+        return BigInt(parsed?.args[0].toString() || '0');
+      }
+      
+      throw new Error('No se pudo obtener el ID del review creado');
+    } catch (err: any) {
+      console.error('Error en addReview:', err);
+      if (err.code === 4001) {
+        throw new Error('Transacción rechazada por el usuario');
+      }
+      setError(err.message || 'Error al agregar review');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [contractWithSigner, contract]);
+
+  const getProductReviews = useCallback(async (productId: bigint): Promise<Review[]> => {
+    if (!contract) throw new Error('Contrato no inicializado');
+    
+    setLoading(true);
+    setError(null);
+    try {
+      const reviews = await contract.getProductReviews(productId);
+      return reviews.map((r: any) => ({
+        reviewId: BigInt(r.reviewId.toString()),
+        productId: BigInt(r.productId.toString()),
+        customerAddress: r.customerAddress,
+        rating: BigInt(r.rating.toString()),
+        comment: r.comment,
+        timestamp: BigInt(r.timestamp.toString()),
+        isVerified: r.isVerified,
+      }));
+    } catch (err: any) {
+      setError(err.message || 'Error al obtener reviews del producto');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [contract]);
+
+  const getMyReviews = useCallback(async (): Promise<Review[]> => {
+    // getMyReviews requiere msg.sender, necesitamos usar contractWithSigner
+    if (!contractWithSigner || !address) {
+      return [];
+    }
+    
+    setLoading(true);
+    setError(null);
+    try {
+      const reviews = await contractWithSigner.getMyReviews();
+      return reviews.map((r: any) => ({
+        reviewId: BigInt(r.reviewId.toString()),
+        productId: BigInt(r.productId.toString()),
+        customerAddress: r.customerAddress,
+        rating: BigInt(r.rating.toString()),
+        comment: r.comment,
+        timestamp: BigInt(r.timestamp.toString()),
+        isVerified: r.isVerified,
+      }));
+    } catch (err: any) {
+      console.error('Error al obtener mis reviews:', err);
+      setError(err.message || 'Error al obtener mis reviews');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [contractWithSigner, address]);
+
+  const getProductAverageRating = useCallback(async (productId: bigint): Promise<{ averageRating: bigint; reviewCount: bigint }> => {
+    if (!contract) throw new Error('Contrato no inicializado');
+    
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await contract.getProductAverageRating(productId);
+      return {
+        averageRating: BigInt(result[0].toString()),
+        reviewCount: BigInt(result[1].toString()),
+      };
+    } catch (err: any) {
+      setError(err.message || 'Error al obtener rating promedio');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [contract]);
+
   return {
     contract,
     contractWithSigner,
@@ -433,6 +546,11 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     getInvoiceItems,
     // Empresas
     getCompany,
+    // Reviews
+    addReview,
+    getProductReviews,
+    getMyReviews,
+    getProductAverageRating,
   };
 }
 

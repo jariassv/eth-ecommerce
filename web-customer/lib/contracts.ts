@@ -24,9 +24,18 @@ export const ECOMMERCE_ABI = [
   // Empresas
   'function getCompany(uint256 companyId) external view returns (tuple(uint256 companyId, string name, address companyAddress, string taxId, bool isActive))',
   
+  // Reviews
+  'function addReview(uint256 productId, uint256 rating, string memory comment) external returns (uint256)',
+  'function getReview(uint256 reviewId) external view returns (tuple(uint256 reviewId, uint256 productId, address customerAddress, uint256 rating, string comment, uint256 timestamp, bool isVerified))',
+  'function getProductReviews(uint256 productId) external view returns (tuple(uint256 reviewId, uint256 productId, address customerAddress, uint256 rating, string comment, uint256 timestamp, bool isVerified)[])',
+  'function getMyReviews() external view returns (tuple(uint256 reviewId, uint256 productId, address customerAddress, uint256 rating, string comment, uint256 timestamp, bool isVerified)[])',
+  'function getProductAverageRating(uint256 productId) external view returns (uint256 averageRating, uint256 reviewCount)',
+  'function getProductReviewCount(uint256 productId) external view returns (uint256)',
+  
   // Events
   'event AddedToCart(address indexed customer, uint256 indexed productId, uint256 quantity)',
   'event InvoiceCreated(uint256 indexed invoiceId, address indexed customer, uint256 indexed companyId, uint256 totalAmount)',
+  'event ReviewAdded(uint256 indexed reviewId, uint256 indexed productId, address indexed customer, uint256 rating)',
 ] as const;
 
 /**
@@ -76,6 +85,19 @@ export interface Company {
   companyAddress: string;
   taxId: string;
   isActive: boolean;
+}
+
+/**
+ * Interfaz TypeScript para Review
+ */
+export interface Review {
+  reviewId: bigint;
+  productId: bigint;
+  customerAddress: string;
+  rating: bigint;
+  comment: string;
+  timestamp: bigint;
+  isVerified: boolean;
 }
 
 /**
