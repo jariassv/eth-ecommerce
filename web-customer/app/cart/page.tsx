@@ -109,13 +109,18 @@ export default function CartPage() {
   const totalFormatted = formatTokenAmount(total, 6);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/30">
       <Header />
       
-      <main className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">
-          Carrito de Compras
-        </h1>
+      <main className="container mx-auto px-4 lg:px-8 py-8">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            Carrito de Compras
+          </h1>
+          <p className="text-gray-600">
+            Revisa tus productos antes de proceder al pago
+          </p>
+        </div>
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
@@ -124,74 +129,115 @@ export default function CartPage() {
         )}
 
         {loading && cartItems.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-            <p className="mt-4 text-gray-600">Cargando carrito...</p>
+          <div className="text-center py-16">
+            <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-indigo-600 border-t-transparent"></div>
+            <p className="mt-4 text-gray-600 text-lg font-medium">Cargando carrito...</p>
           </div>
         ) : cartItems.length === 0 ? (
-          <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8 text-center">
-            <p className="text-gray-600 text-lg mb-4">
+          <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-lg border border-gray-200 p-12 text-center">
+            <svg className="mx-auto h-20 w-20 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            </svg>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">
               Tu carrito está vacío
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Agrega productos a tu carrito para comenzar
             </p>
             <Link
               href="/"
-              className="inline-block px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg shadow-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/50 transition-all transform hover:scale-105"
             >
-              Ver Productos
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Explorar Productos
             </Link>
           </div>
         ) : (
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-lg shadow-md overflow-hidden">
-              <div className="divide-y divide-gray-200">
+          <div className="max-w-5xl mx-auto">
+            <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200">
+              <div className="divide-y divide-gray-100">
                 {cartItems.map((item) => {
                   const product = products.get(item.productId.toString());
                   if (!product) return null;
 
                   const itemTotal = product.price * item.quantity;
                   const itemTotalFormatted = formatTokenAmount(itemTotal, 6);
+                  const imageUrl = product.ipfsImageHash
+                    ? `https://cloudflare-ipfs.com/ipfs/${product.ipfsImageHash}`
+                    : '/placeholder-product.png';
 
                   return (
-                    <div key={item.productId.toString()} className="p-6 flex items-center gap-6">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {product.name}
-                        </h3>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {product.description.substring(0, 100)}...
-                        </p>
-                        <div className="mt-2">
-                          <span className="text-sm text-gray-600">
-                            Precio unitario: ${formatTokenAmount(product.price, 6)} USDT
-                          </span>
+                    <div key={item.productId.toString()} className="p-6 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center gap-6">
+                        <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+                          <img
+                            src={imageUrl}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = '/placeholder-product.png';
+                            }}
+                          />
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-600">
-                          Cantidad: {item.quantity.toString()}
-                        </p>
-                        <p className="text-lg font-bold text-indigo-600 mt-1">
-                          ${itemTotalFormatted} USDT
-                        </p>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-bold text-gray-900 mb-1">
+                            {product.name}
+                          </h3>
+                          <p className="text-sm text-gray-600 line-clamp-2">
+                            {product.description}
+                          </p>
+                          <div className="mt-2 flex items-center gap-4 text-sm">
+                            <span className="text-gray-600">
+                              Precio: <span className="font-semibold text-indigo-600">${formatTokenAmount(product.price, 6)} USDT</span>
+                            </span>
+                            <span className="text-gray-400">•</span>
+                            <span className="text-gray-600">
+                              Cantidad: <span className="font-semibold">{item.quantity.toString()}</span>
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                            ${itemTotalFormatted}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">USDT</p>
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              <div className="border-t border-gray-200 p-6 bg-gray-50">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-xl font-semibold text-gray-900">Total:</span>
-                  <span className="text-2xl font-bold text-indigo-600">
-                    ${totalFormatted} USDT
-                  </span>
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-t-2 border-indigo-200 p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <span className="text-xl font-semibold text-gray-900">Total del Pedido:</span>
+                  <div className="text-right">
+                    <span className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                      ${totalFormatted}
+                    </span>
+                    <p className="text-sm text-gray-600 mt-1">USDT</p>
+                  </div>
                 </div>
                 <button
                   onClick={handleCheckout}
                   disabled={processing || loading}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/50 transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3"
                 >
-                  {processing ? 'Procesando...' : 'Proceder al Pago'}
+                  {processing ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Procesando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Proceder al Pago</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
