@@ -255,21 +255,12 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
         </div>
       </div>
 
-      <div className="flex gap-2">
-        <button
-          onClick={() => loadBalances(true)}
-          disabled={loading}
-          className="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-        >
-          {loading ? 'Cargando...' : '🔄 Refrescar'}
-        </button>
-        <button
-          onClick={handleDisconnect}
-          className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors text-sm"
-        >
-          Desconectar
-        </button>
-      </div>
+      <button
+        onClick={handleDisconnect}
+        className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+      >
+        Desconectar
+      </button>
     </div>
   );
 }
