@@ -43,6 +43,8 @@ print_success "Anvil iniciado (PID: $ANVIL_PID)"
 
 # Configurar private key (cuenta 0 de Anvil por defecto)
 PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+# Guardar PRIVATE_KEY para uso posterior (para .env.local)
+OWNER_PRIVATE_KEY="$PRIVATE_KEY"
 
 # 3. Deploy USDToken
 print_info "Deployando USDToken..."
@@ -62,11 +64,10 @@ if [ -z "$USD_TOKEN_ADDRESS" ]; then
     print_error "No se pudo obtener la dirección del contrato USDToken"
     exit 1
 fi
-unset PRIVATE_KEY
 cd ../..
 print_success "USDToken desplegado en: $USD_TOKEN_ADDRESS"
 
-# 4. Deploy EURToken (opcional)
+# 4. Deploy EURToken
 print_info "Deployando EURToken..."
 cd stablecoin/sc
 if [ ! -f "out/EURToken.sol/EURToken.json" ]; then
@@ -82,7 +83,6 @@ if [ -z "$EUR_TOKEN_ADDRESS" ]; then
     print_error "No se pudo obtener la dirección del contrato EURToken"
     exit 1
 fi
-unset PRIVATE_KEY
 cd ../..
 print_success "EURToken desplegado en: $EUR_TOKEN_ADDRESS"
 
@@ -146,7 +146,7 @@ fi
 print_info "Actualizando direcciones de contratos en .env.local..."
 sed -i.bak "s|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=$USD_TOKEN_ADDRESS|g" "$COMPRA_ENV_FILE"
 sed -i.bak "s|NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=$EUR_TOKEN_ADDRESS|g" "$COMPRA_ENV_FILE"
-sed -i.bak "s|OWNER_PRIVATE_KEY=.*|OWNER_PRIVATE_KEY=$PRIVATE_KEY|g" "$COMPRA_ENV_FILE"
+sed -i.bak "s|OWNER_PRIVATE_KEY=.*|OWNER_PRIVATE_KEY=$OWNER_PRIVATE_KEY|g" "$COMPRA_ENV_FILE"
 rm -f "${COMPRA_ENV_FILE}.bak" 2>/dev/null || true
 
 print_success "Variables de entorno actualizadas en $COMPRA_ENV_FILE"
@@ -161,7 +161,7 @@ print_info "📋 Resumen de direcciones desplegadas:"
 echo "   USD_TOKEN_ADDRESS=$USD_TOKEN_ADDRESS"
 echo "   EUR_TOKEN_ADDRESS=$EUR_TOKEN_ADDRESS"
 echo "   ECOMMERCE_ADDRESS=$ECOMMERCE_ADDRESS"
-echo "   OWNER_PRIVATE_KEY=$PRIVATE_KEY"
+echo "   OWNER_PRIVATE_KEY=$OWNER_PRIVATE_KEY"
 echo ""
 
 # 8. Iniciar aplicaciones Next.js (opcional)
