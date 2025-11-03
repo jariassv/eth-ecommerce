@@ -35,6 +35,52 @@ export async function connectWallet(): Promise<string> {
 }
 
 /**
+ * Realizar llamada RPC a través del proxy
+ */
+async function rpcCall(method: string, params: any[]): Promise<any> {
+  const response = await fetch('/api/rpc', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method,
+      params,
+      id: 1,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`RPC call failed: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(`RPC error: ${data.error.message}`);
+  }
+  return data.result;
+}
+
+/**
+ * Codificar función balanceOf(address) para llamada RPC
+ */
+function encodeBalanceOfCall(userAddress: string): string {
+  // Función: balanceOf(address) - signature hash
+  const functionSignature = '0x70a08231'; // keccak256("balanceOf(address)") primeros 4 bytes
+  // Eliminar "0x" y rellenar dirección a 32 bytes (64 caracteres hex)
+  const addressPadded = userAddress.slice(2).padStart(64, '0');
+  return functionSignature + addressPadded;
+}
+
+/**
+ * Decodificar resultado uint256 de respuesta RPC
+ */
+function decodeUint256(hexValue: string): bigint {
+  return BigInt(hexValue);
+}
+
+/**
  * Obtener el balance de tokens ERC20
  * IMPORTANTE: Usa API route como proxy para evitar problemas de CORS
  */
@@ -44,7 +90,6 @@ export async function getTokenBalance(
   forceRefresh: boolean = false
 ): Promise<string> {
   // Usar API route como proxy para evitar problemas de CORS cuando se llama desde el navegador
-  // Esto permite que el servidor de Next.js haga la petición a la RPC
   const useProxy = typeof window !== 'undefined'; // Solo usar proxy en el cliente
   
   if (useProxy) {
@@ -52,31 +97,27 @@ export async function getTokenBalance(
     console.log(`🌐 Usando API route como proxy para RPC`);
     
     try {
-      // Obtener la URL base (necesario para JsonRpcProvider)
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-      const proxyUrl = `${baseUrl}/api/rpc`;
+      // Codificar la llamada a balanceOf(address)
+      const data = encodeBalanceOfCall(userAddress);
       
-      console.log(`   Proxy URL: ${proxyUrl}`);
+      // Hacer llamada RPC eth_call
+      const result = await rpcCall('eth_call', [
+        {
+          to: contractAddress,
+          data: data,
+        },
+        'latest', // blockTag
+      ]);
       
-      // Crear un provider que use la API route con URL completa
-      const provider = new ethers.JsonRpcProvider(proxyUrl);
+      // Decodificar el resultado (uint256)
+      const balanceBigInt = decodeUint256(result);
       
-      // ABI mínimo para balanceOf
-      const abi = ['function balanceOf(address) view returns (uint256)'];
-      const contract = new ethers.Contract(contractAddress, abi, provider);
-      
-      // Verificar conexión
-      await provider.getBlockNumber().catch((err) => {
-        console.error('❌ Error conectando a RPC via proxy:', err);
-        throw new Error('No se puede conectar a la RPC. ¿Está Anvil corriendo?');
-      });
-      
-      const balance = await contract.balanceOf(userAddress, { blockTag: 'latest' });
-      return ethers.formatUnits(balance, 6); // USDToken tiene 6 decimales
+      // Convertir a string con 6 decimales
+      return ethers.formatUnits(balanceBigInt.toString(), 6);
     } catch (error) {
       console.error('❌ Error al obtener balance:', error);
       if (error instanceof Error) {
-        if (error.message.includes('fetch') || error.message.includes('Network') || error.message.includes('UNSUPPORTED')) {
+        if (error.message.includes('fetch') || error.message.includes('Network') || error.message.includes('RPC')) {
           throw new Error('Error de red. Verifica que Anvil esté corriendo en http://localhost:8545');
         }
       }
