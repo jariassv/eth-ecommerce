@@ -30,7 +30,7 @@ export default function FloatingCartButton() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [isConnected, address, isReady]);
+  }, [isConnected, address, isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadCartCount = async () => {
     try {

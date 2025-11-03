@@ -99,30 +99,6 @@ export default function CartPage() {
     }
   };
 
-  if (!address) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <main className="container mx-auto px-4 py-8">
-          <div className="max-w-2xl mx-auto text-center py-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Carrito de Compras
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Por favor conecta tu wallet para ver tu carrito
-            </p>
-            <Link
-              href="/"
-              className="inline-block px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              Ver Productos
-            </Link>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   const totalFormatted = formatTokenAmount(total, 6);
 
   if (!isConnected || !address) {
