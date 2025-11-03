@@ -20,16 +20,30 @@ export default function FloatingCartButton() {
     }
   }, [isConnected, address, isReady]);
 
-  // Recargar conteo cuando cambia el carrito (polling cada 3 segundos)
+  // Recargar conteo cuando cambia el carrito (polling cada 2 segundos)
   useEffect(() => {
     if (!isConnected || !address || !isReady) return;
 
     loadCartCount();
     const interval = setInterval(() => {
-      loadCartCount();
-    }, 3000);
+      if (!showPreview) { // Solo hacer polling si el modal no está abierto
+        loadCartCount();
+      }
+    }, 2000);
 
     return () => clearInterval(interval);
+  }, [isConnected, address, isReady, showPreview]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Escuchar eventos de actualización del carrito
+  useEffect(() => {
+    const handleCartUpdate = () => {
+      if (isConnected && address && isReady) {
+        loadCartCount();
+      }
+    };
+
+    window.addEventListener('cartUpdated', handleCartUpdate);
+    return () => window.removeEventListener('cartUpdated', handleCartUpdate);
   }, [isConnected, address, isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadCartCount = async () => {

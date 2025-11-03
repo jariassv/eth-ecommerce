@@ -72,6 +72,8 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
       if (onAddToCart) {
         onAddToCart();
       }
+      // Disparar evento global para actualizar el contador del carrito
+      window.dispatchEvent(new CustomEvent('cartUpdated'));
       alert(`Se agregaron ${quantity} unidades al carrito`);
     } catch (err: any) {
       alert(err.message || 'Error al agregar al carrito');

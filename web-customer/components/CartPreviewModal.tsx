@@ -99,6 +99,9 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
         onCartUpdate();
       }
 
+      // Disparar evento global para actualizar el contador del carrito
+      window.dispatchEvent(new CustomEvent('cartUpdated'));
+
       // Cerrar modal
       onClose();
 
