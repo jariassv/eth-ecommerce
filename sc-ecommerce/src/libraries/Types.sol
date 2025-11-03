@@ -54,5 +54,18 @@ library Types {
         bytes32 paymentTxHash;
         uint256 itemCount; // Cantidad de items en la factura
     }
+
+    /**
+     * @dev Estructura de datos para un review
+     */
+    struct Review {
+        uint256 reviewId;
+        uint256 productId;
+        address customerAddress;
+        uint256 rating; // 1-5 estrellas
+        string comment;
+        uint256 timestamp;
+        bool isVerified; // Verificado que compró el producto
+    }
 }
 
