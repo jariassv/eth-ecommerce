@@ -252,18 +252,25 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setError(null);
     try {
       const products = await contract.getProductsByCompany(companyId);
-      return products.map((p: any) => ({
-        productId: BigInt(p.productId.toString()),
-        companyId: BigInt(p.companyId.toString()),
-        name: p.name,
-        description: p.description,
-        price: BigInt(p.price.toString()),
-        stock: BigInt(p.stock.toString()),
-        ipfsImageHash: p.ipfsImageHash,
-        ipfsAdditionalImages: p.ipfsAdditionalImages || [],
-        totalSales: BigInt(p.totalSales.toString()),
-        isActive: p.isActive,
-      }));
+      return products.map((p: any) => {
+        const ipfsHash = p.ipfsImageHash || '';
+        // Log para debug
+        if (ipfsHash) {
+          console.log('Producto obtenido del contrato:', p.name, 'Hash IPFS:', ipfsHash);
+        }
+        return {
+          productId: BigInt(p.productId.toString()),
+          companyId: BigInt(p.companyId.toString()),
+          name: p.name,
+          description: p.description,
+          price: BigInt(p.price.toString()),
+          stock: BigInt(p.stock.toString()),
+          ipfsImageHash: ipfsHash,
+          ipfsAdditionalImages: p.ipfsAdditionalImages || [],
+          totalSales: BigInt(p.totalSales.toString()),
+          isActive: p.isActive,
+        };
+      });
     } catch (err: any) {
       setError(err.message || 'Error al obtener productos');
       throw err;
