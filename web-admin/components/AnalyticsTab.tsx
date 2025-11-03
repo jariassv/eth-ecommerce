@@ -52,6 +52,9 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
     } else if (!isConnected) {
       setLoadingData(false);
       setError('Debes conectar tu wallet para ver los analytics');
+    } else {
+      // Si isReady es false, seguir cargando
+      setLoadingData(true);
     }
   }, [companyId, isReady, isConnected]);
 

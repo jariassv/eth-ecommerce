@@ -303,10 +303,10 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
 
   const getCompanyInvoices = useCallback(async (companyId: bigint): Promise<Invoice[]> => {
     // getCompanyInvoices requiere msg.sender, necesitamos usar contractWithSigner
-    const contractToUse = contractWithSigner || contract;
-    if (!contractToUse) throw new Error('Contrato no inicializado');
     if (!contractWithSigner) {
-      throw new Error('Se requiere conexión de wallet para obtener facturas de la empresa');
+      // No lanzar error si no hay wallet conectado, solo retornar array vacío
+      // Esto evita errores en consola cuando el componente se carga antes de conectar wallet
+      return [];
     }
     
     setLoading(true);
@@ -329,7 +329,7 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     } finally {
       setLoading(false);
     }
-  }, [contract, contractWithSigner]);
+  }, [contractWithSigner]);
 
   const getInvoice = useCallback(async (invoiceId: bigint): Promise<Invoice> => {
     if (!contract) throw new Error('Contrato no inicializado');

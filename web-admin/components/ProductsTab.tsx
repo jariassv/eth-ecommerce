@@ -141,7 +141,7 @@ function ProductCard({ product, onEdit, onToggleActive }: ProductCardProps) {
     }
   };
 
-  const imageUrl = product.ipfsImageHash
+  const imageUrl = product.ipfsImageHash && product.ipfsImageHash.trim()
     ? getIPFSImageUrl(product.ipfsImageHash)
     : '/placeholder-product.png';
 
@@ -153,7 +153,11 @@ function ProductCard({ product, onEdit, onToggleActive }: ProductCardProps) {
           alt={product.name}
           className="w-full h-48 object-cover"
           onError={(e) => {
+            console.error('Error cargando imagen IPFS:', product.ipfsImageHash, 'URL:', imageUrl);
             (e.target as HTMLImageElement).src = '/placeholder-product.png';
+          }}
+          onLoad={() => {
+            console.log('Imagen IPFS cargada correctamente:', product.ipfsImageHash, 'URL:', imageUrl);
           }}
         />
       </div>

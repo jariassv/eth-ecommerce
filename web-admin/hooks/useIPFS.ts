@@ -98,7 +98,20 @@ export function useIPFS() {
 export function getIPFSImageUrl(hash: string): string {
   if (!hash) return '';
   
-  // Usar Cloudflare IPFS Gateway
-  return `https://cloudflare-ipfs.com/ipfs/${hash}`;
+  // Limpiar el hash (eliminar espacios, saltos de línea, etc.)
+  const cleanHash = hash.trim();
+  
+  // Si el hash ya tiene el prefijo /ipfs/, solo agregar el gateway
+  if (cleanHash.startsWith('/ipfs/')) {
+    return `https://cloudflare-ipfs.com${cleanHash}`;
+  }
+  
+  // Si el hash ya tiene el prefijo ipfs://, reemplazarlo
+  if (cleanHash.startsWith('ipfs://')) {
+    return `https://cloudflare-ipfs.com/ipfs/${cleanHash.replace('ipfs://', '')}`;
+  }
+  
+  // Usar Cloudflare IPFS Gateway (gateway por defecto)
+  return `https://cloudflare-ipfs.com/ipfs/${cleanHash}`;
 }
 

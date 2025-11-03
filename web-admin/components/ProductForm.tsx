@@ -117,12 +117,16 @@ export default function ProductForm({ companyId, product, onClose, onSuccess }: 
         await updateProduct(product.productId, priceInWei, stockBigInt);
       } else {
         // Crear nuevo producto
+        // Limpiar el hash de IPFS (eliminar espacios)
+        const cleanImageHash = ipfsImageHash.trim();
+        console.log('Creando producto con hash IPFS:', cleanImageHash);
+        
         await addProduct(
           name.trim(),
           description.trim(),
           priceInWei,
           stockBigInt,
-          ipfsImageHash,
+          cleanImageHash,
           additionalHashes
         );
       }
