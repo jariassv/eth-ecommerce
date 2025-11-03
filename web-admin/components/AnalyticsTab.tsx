@@ -39,29 +39,35 @@ interface ProductSales {
 }
 
 export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
-  const { address, provider } = useWallet();
+  const { address, provider, isConnected } = useWallet();
   const { getCompanyInvoices, getCompanyProducts, loading, isReady } = useEcommerce(provider, address);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isReady) {
+    if (isReady && isConnected) {
       loadData();
+    } else if (!isConnected) {
+      setLoadingData(false);
+      setError('Debes conectar tu wallet para ver los analytics');
     }
-  }, [companyId, isReady]);
+  }, [companyId, isReady, isConnected]);
 
   const loadData = async () => {
     try {
       setLoadingData(true);
+      setError(null);
       const [companyInvoices, companyProducts] = await Promise.all([
         getCompanyInvoices(companyId),
         getCompanyProducts(companyId),
       ]);
       setInvoices(companyInvoices);
       setProducts(companyProducts);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error loading analytics data:', err);
+      setError(err.message || 'Error al cargar datos de analytics');
     } finally {
       setLoadingData(false);
     }
@@ -138,6 +144,17 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
       <div className="text-center py-12">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
         <p className="mt-4 text-gray-600">Cargando analytics...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+          <p className="text-red-800 font-semibold mb-2">Error al cargar analytics</p>
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
       </div>
     );
   }

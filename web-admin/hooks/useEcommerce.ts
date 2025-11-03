@@ -302,12 +302,17 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
   // ============ FACTURAS ============
 
   const getCompanyInvoices = useCallback(async (companyId: bigint): Promise<Invoice[]> => {
-    if (!contract) throw new Error('Contrato no inicializado');
+    // getCompanyInvoices requiere msg.sender, necesitamos usar contractWithSigner
+    const contractToUse = contractWithSigner || contract;
+    if (!contractToUse) throw new Error('Contrato no inicializado');
+    if (!contractWithSigner) {
+      throw new Error('Se requiere conexión de wallet para obtener facturas de la empresa');
+    }
     
     setLoading(true);
     setError(null);
     try {
-      const invoices = await contract.getCompanyInvoices(companyId);
+      const invoices = await contractWithSigner.getCompanyInvoices(companyId);
       return invoices.map((inv: any) => ({
         invoiceId: BigInt(inv.invoiceId.toString()),
         companyId: BigInt(inv.companyId.toString()),
@@ -324,7 +329,7 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     } finally {
       setLoading(false);
     }
-  }, [contract]);
+  }, [contract, contractWithSigner]);
 
   const getInvoice = useCallback(async (invoiceId: bigint): Promise<Invoice> => {
     if (!contract) throw new Error('Contrato no inicializado');
