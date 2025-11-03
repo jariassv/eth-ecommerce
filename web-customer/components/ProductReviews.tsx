@@ -12,7 +12,7 @@ interface ProductReviewsProps {
 
 export default function ProductReviews({ product, onReviewAdded }: ProductReviewsProps) {
   const { provider, address, isConnected } = useWallet();
-  const { getProductReviews, addReview, getProductAverageRating, loading } = useEcommerce(provider, address);
+  const { getProductReviews, addReview, getProductAverageRating, loading, isReady } = useEcommerce(provider, address);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [averageRating, setAverageRating] = useState<{ averageRating: bigint; reviewCount: bigint } | null>(null);
   const [loadingReviews, setLoadingReviews] = useState(true);
@@ -23,11 +23,20 @@ export default function ProductReviews({ product, onReviewAdded }: ProductReview
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadReviews();
-    loadAverageRating();
-  }, [product.productId]);
+    if (isReady) {
+      loadReviews();
+      loadAverageRating();
+    } else {
+      setLoadingReviews(false);
+    }
+  }, [product.productId, isReady]);
 
   const loadReviews = async () => {
+    if (!isReady) {
+      setLoadingReviews(false);
+      return;
+    }
+
     try {
       setLoadingReviews(true);
       const productReviews = await getProductReviews(product.productId);
@@ -47,6 +56,8 @@ export default function ProductReviews({ product, onReviewAdded }: ProductReview
   };
 
   const loadAverageRating = async () => {
+    if (!isReady) return;
+
     try {
       const avg = await getProductAverageRating(product.productId);
       setAverageRating(avg);
