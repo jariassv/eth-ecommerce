@@ -738,5 +738,441 @@ contract EcommerceTest is Test {
         assertEq(productAfter.stock, 90); // 100 - 10
         assertEq(productAfter.totalSales, 10);
     }
+
+    // ============ TESTS DE REVIEWS ============
+
+    function test_AddReview() public {
+        vm.prank(company);
+        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+
+        vm.prank(company);
+        uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
+
+        // Cliente compra el producto primero
+        vm.prank(customer);
+        ecommerce.addToCart(productId, 2);
+
+        vm.prank(customer);
+        (uint256 invoiceId, uint256 totalAmount) = ecommerce.createInvoice(companyId);
+
+        vm.prank(customer);
+        usdToken.approve(address(ecommerce), totalAmount);
+
+        vm.prank(customer);
+        ecommerce.processPayment(invoiceId);
+
+        // Ahora puede dejar review
+        vm.prank(customer);
+        uint256 reviewId = ecommerce.addReview(productId, 5, "Excelente producto!");
+
+        assertEq(reviewId, 1);
+        
+        Types.Review memory review = ecommerce.getReview(reviewId);
+        assertEq(review.productId, productId);
+        assertEq(review.customerAddress, customer);
+        assertEq(review.rating, 5);
+        assertEq(review.comment, "Excelente producto!");
+        assertTrue(review.isVerified);
+    }
+
+    function test_AddReviewFailsWithoutPurchase() public {
+        vm.prank(company);
+        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+
+        vm.prank(company);
+        uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
+
+        // Intenta dejar review sin haber comprado
+        vm.prank(customer);
+        vm.expectRevert("ReviewLib: customer must purchase product before reviewing");
+        ecommerce.addReview(productId, 5, "Excelente producto!");
+    }
+
+    function test_AddReviewFailsWithInvalidRating() public {
+        vm.prank(company);
+        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+
+        vm.prank(company);
+        uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
+
+        // Comprar producto
+        vm.prank(customer);
+        ecommerce.addToCart(productId, 1);
+
+        vm.prank(customer);
+        (uint256 invoiceId, uint256 totalAmount) = ecommerce.createInvoice(companyId);
+
+        vm.prank(customer);
+        usdToken.approve(address(ecommerce), totalAmount);
+
+        vm.prank(customer);
+        ecommerce.processPayment(invoiceId);
+
+        // Intenta dejar review con rating inválido
+        vm.prank(customer);
+        vm.expectRevert("ReviewLib: rating must be between 1 and 5");
+        ecommerce.addReview(productId, 6, "Comentario");
+
+        vm.prank(customer);
+        vm.expectRevert("ReviewLib: rating must be between 1 and 5");
+        ecommerce.addReview(productId, 0, "Comentario");
+    }
+
+    function test_AddReviewFailsWithEmptyComment() public {
+        vm.prank(company);
+        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+
+        vm.prank(company);
+        uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
+
+        // Comprar producto
+        vm.prank(customer);
+        ecommerce.addToCart(productId, 1);
+
+        vm.prank(customer);
+        (uint256 invoiceId, uint256 totalAmount) = ecommerce.createInvoice(companyId);
+
+        vm.prank(customer);
+        usdToken.approve(address(ecommerce), totalAmount);
+
+        vm.prank(customer);
+        ecommerce.processPayment(invoiceId);
+
+        // Intenta dejar review sin comentario
+        vm.prank(customer);
+        vm.expectRevert("ReviewLib: comment required");
+        ecommerce.addReview(productId, 5, "");
+    }
+
+    function test_CannotReviewSameProductTwice() public {
+        vm.prank(company);
+        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+
+        vm.prank(company);
+        uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
+
+        // Comprar producto
+        vm.prank(customer);
+        ecommerce.addToCart(productId, 1);
+
+        vm.prank(customer);
+        (uint256 invoiceId, uint256 totalAmount) = ecommerce.createInvoice(companyId);
+
+        vm.prank(customer);
+        usdToken.approve(address(ecommerce), totalAmount);
+
+        vm.prank(customer);
+        ecommerce.processPayment(invoiceId);
+
+        // Primer review
+        vm.prank(customer);
+        ecommerce.addReview(productId, 5, "Primer review");
+
+        // Intenta dejar segundo review del mismo producto
+        vm.prank(customer);
+        vm.expectRevert("ReviewLib: customer already reviewed this product");
+        ecommerce.addReview(productId, 4, "Segundo review");
+    }
+
+    function test_GetProductReviews() public {
+        vm.prank(company);
+        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+
+        vm.prank(company);
+        uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
+
+        // Cliente 1 compra y deja review
+        vm.prank(customer);
+        ecommerce.addToCart(productId, 1);
+
+        vm.prank(customer);
+        (uint256 invoiceId1, uint256 totalAmount1) = ecommerce.createInvoice(companyId);
+
+        vm.prank(customer);
+        usdToken.approve(address(ecommerce), totalAmount1);
+
+        vm.prank(customer);
+        ecommerce.processPayment(invoiceId1);
+
+        vm.prank(customer);
+        ecommerce.addReview(productId, 5, "Muy bueno!");
+
+        // Cliente 2 compra y deja review
+        vm.prank(customer2);
+        ecommerce.addToCart(productId, 1);
+
+        vm.prank(customer2);
+        (uint256 invoiceId2, uint256 totalAmount2) = ecommerce.createInvoice(companyId);
+
+        vm.prank(customer2);
+        usdToken.approve(address(ecommerce), totalAmount2);
+
+        vm.prank(customer2);
+        ecommerce.processPayment(invoiceId2);
+
+        vm.prank(customer2);
+        ecommerce.addReview(productId, 4, "Buen producto");
+
+        // Obtener reviews del producto
+        Types.Review[] memory reviews = ecommerce.getProductReviews(productId);
+        assertEq(reviews.length, 2);
+        assertEq(reviews[0].rating, 5);
+        assertEq(reviews[1].rating, 4);
+        assertTrue(reviews[0].isVerified);
+        assertTrue(reviews[1].isVerified);
+    }
+
+    function test_GetProductAverageRating() public {
+        vm.prank(company);
+        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+
+        vm.prank(company);
+        uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
+
+        // Cliente 1: rating 5
+        vm.prank(customer);
+        ecommerce.addToCart(productId, 1);
+        vm.prank(customer);
+        (uint256 invoiceId1, uint256 totalAmount1) = ecommerce.createInvoice(companyId);
+        vm.prank(customer);
+        usdToken.approve(address(ecommerce), totalAmount1);
+        vm.prank(customer);
+        ecommerce.processPayment(invoiceId1);
+        vm.prank(customer);
+        ecommerce.addReview(productId, 5, "Excelente");
+
+        // Cliente 2: rating 4
+        vm.prank(customer2);
+        ecommerce.addToCart(productId, 1);
+        vm.prank(customer2);
+        (uint256 invoiceId2, uint256 totalAmount2) = ecommerce.createInvoice(companyId);
+        vm.prank(customer2);
+        usdToken.approve(address(ecommerce), totalAmount2);
+        vm.prank(customer2);
+        ecommerce.processPayment(invoiceId2);
+        vm.prank(customer2);
+        ecommerce.addReview(productId, 4, "Muy bueno");
+
+        // Promedio: (5 + 4) / 2 = 4.5 = 450 (multiplicado por 100)
+        (uint256 averageRating, uint256 reviewCount) = ecommerce.getProductAverageRating(productId);
+        assertEq(averageRating, 450); // 4.50 * 100
+        assertEq(reviewCount, 2);
+    }
+
+    function test_GetProductAverageRatingNoReviews() public {
+        vm.prank(company);
+        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+
+        vm.prank(company);
+        uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
+
+        // Sin reviews
+        (uint256 averageRating, uint256 reviewCount) = ecommerce.getProductAverageRating(productId);
+        assertEq(averageRating, 0);
+        assertEq(reviewCount, 0);
+    }
+
+    function test_HasPurchasedProduct() public {
+        vm.prank(company);
+        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+
+        vm.prank(company);
+        uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
+
+        // Cliente no ha comprado
+        vm.prank(customer);
+        bool hasPurchased = ecommerce.hasPurchasedProduct(productId);
+        assertFalse(hasPurchased);
+
+        // Cliente compra
+        vm.prank(customer);
+        ecommerce.addToCart(productId, 1);
+
+        vm.prank(customer);
+        (uint256 invoiceId, uint256 totalAmount) = ecommerce.createInvoice(companyId);
+
+        vm.prank(customer);
+        usdToken.approve(address(ecommerce), totalAmount);
+
+        vm.prank(customer);
+        ecommerce.processPayment(invoiceId);
+
+        // Ahora sí ha comprado
+        vm.prank(customer);
+        hasPurchased = ecommerce.hasPurchasedProduct(productId);
+        assertTrue(hasPurchased);
+    }
+
+    function test_GetMyReviews() public {
+        vm.prank(company);
+        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+
+        vm.prank(company);
+        uint256 productId1 = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash1", new string[](0));
+        
+        vm.prank(company);
+        uint256 productId2 = ecommerce.addProduct("Producto 2", "Desc", 2000 * 10**6, 100, "hash2", new string[](0));
+
+        // Cliente compra ambos productos
+        vm.prank(customer);
+        ecommerce.addToCart(productId1, 1);
+        vm.prank(customer);
+        ecommerce.addToCart(productId2, 1);
+        vm.prank(customer);
+        (uint256 invoiceId, uint256 totalAmount) = ecommerce.createInvoice(companyId);
+        vm.prank(customer);
+        usdToken.approve(address(ecommerce), totalAmount);
+        vm.prank(customer);
+        ecommerce.processPayment(invoiceId);
+
+        // Deja reviews de ambos productos
+        vm.prank(customer);
+        ecommerce.addReview(productId1, 5, "Buen producto 1");
+        vm.prank(customer);
+        ecommerce.addReview(productId2, 4, "Buen producto 2");
+
+        // Obtener mis reviews
+        vm.prank(customer);
+        Types.Review[] memory myReviews = ecommerce.getMyReviews();
+        assertEq(myReviews.length, 2);
+        assertEq(myReviews[0].productId, productId1);
+        assertEq(myReviews[1].productId, productId2);
+    }
+
+    function test_GetReviewCount() public {
+        vm.prank(company);
+        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+
+        vm.prank(company);
+        uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
+
+        assertEq(ecommerce.getReviewCount(), 0);
+
+        // Cliente 1 deja review
+        vm.prank(customer);
+        ecommerce.addToCart(productId, 1);
+        vm.prank(customer);
+        (uint256 invoiceId1, uint256 totalAmount1) = ecommerce.createInvoice(companyId);
+        vm.prank(customer);
+        usdToken.approve(address(ecommerce), totalAmount1);
+        vm.prank(customer);
+        ecommerce.processPayment(invoiceId1);
+        vm.prank(customer);
+        ecommerce.addReview(productId, 5, "Review 1");
+
+        assertEq(ecommerce.getReviewCount(), 1);
+
+        // Cliente 2 deja review
+        vm.prank(customer2);
+        ecommerce.addToCart(productId, 1);
+        vm.prank(customer2);
+        (uint256 invoiceId2, uint256 totalAmount2) = ecommerce.createInvoice(companyId);
+        vm.prank(customer2);
+        usdToken.approve(address(ecommerce), totalAmount2);
+        vm.prank(customer2);
+        ecommerce.processPayment(invoiceId2);
+        vm.prank(customer2);
+        ecommerce.addReview(productId, 4, "Review 2");
+
+        assertEq(ecommerce.getReviewCount(), 2);
+    }
+
+    function test_GetProductReviewCount() public {
+        vm.prank(company);
+        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+
+        vm.prank(company);
+        uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
+
+        assertEq(ecommerce.getProductReviewCount(productId), 0);
+
+        // Cliente 1 deja review
+        vm.prank(customer);
+        ecommerce.addToCart(productId, 1);
+        vm.prank(customer);
+        (uint256 invoiceId1, uint256 totalAmount1) = ecommerce.createInvoice(companyId);
+        vm.prank(customer);
+        usdToken.approve(address(ecommerce), totalAmount1);
+        vm.prank(customer);
+        ecommerce.processPayment(invoiceId1);
+        vm.prank(customer);
+        ecommerce.addReview(productId, 5, "Review 1");
+
+        assertEq(ecommerce.getProductReviewCount(productId), 1);
+
+        // Cliente 2 deja review
+        vm.prank(customer2);
+        ecommerce.addToCart(productId, 1);
+        vm.prank(customer2);
+        (uint256 invoiceId2, uint256 totalAmount2) = ecommerce.createInvoice(companyId);
+        vm.prank(customer2);
+        usdToken.approve(address(ecommerce), totalAmount2);
+        vm.prank(customer2);
+        ecommerce.processPayment(invoiceId2);
+        vm.prank(customer2);
+        ecommerce.addReview(productId, 4, "Review 2");
+
+        assertEq(ecommerce.getProductReviewCount(productId), 2);
+    }
+
+    function test_MultipleReviewsSameProductDifferentCustomers() public {
+        vm.prank(company);
+        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+
+        vm.prank(company);
+        uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
+
+        // 3 clientes diferentes compran y dejan reviews
+        address customer3 = address(0x8);
+        usdToken.mint(customer3, INITIAL_TOKEN_SUPPLY);
+
+        for (uint256 i = 0; i < 3; i++) {
+            address currentCustomer = i == 0 ? customer : (i == 1 ? customer2 : customer3);
+            
+            vm.prank(currentCustomer);
+            ecommerce.addToCart(productId, 1);
+            
+            vm.prank(currentCustomer);
+            (uint256 invoiceId, uint256 totalAmount) = ecommerce.createInvoice(companyId);
+            
+            vm.prank(currentCustomer);
+            usdToken.approve(address(ecommerce), totalAmount);
+            
+            vm.prank(currentCustomer);
+            ecommerce.processPayment(invoiceId);
+            
+            vm.prank(currentCustomer);
+            ecommerce.addReview(productId, uint256(5 - i), string(abi.encodePacked("Review ", toString(i + 1))));
+        }
+
+        // Verificar reviews
+        Types.Review[] memory reviews = ecommerce.getProductReviews(productId);
+        assertEq(reviews.length, 3);
+
+        // Verificar promedio: (5 + 4 + 3) / 3 = 4.00 = 400
+        (uint256 averageRating, uint256 reviewCount) = ecommerce.getProductAverageRating(productId);
+        assertEq(averageRating, 400); // 4.00 * 100
+        assertEq(reviewCount, 3);
+    }
+
+    // Helper function para convertir uint a string (usado en test)
+    function toString(uint256 value) private pure returns (string memory) {
+        if (value == 0) {
+            return "0";
+        }
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
+        }
+        return string(buffer);
+    }
 }
 
