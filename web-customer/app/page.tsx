@@ -9,15 +9,22 @@ import Header from '@/components/Header';
 
 export default function Home() {
   const { provider, address } = useWallet();
-  const { getAllProducts, loading, error } = useEcommerce(provider, address);
+  const { getAllProducts, loading, error, isReady } = useEcommerce(provider, address);
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
 
   useEffect(() => {
-    loadProducts();
-  }, []);
+    if (isReady) {
+      loadProducts();
+    }
+  }, [isReady]);
 
   const loadProducts = async () => {
+    if (!isReady) {
+      // Esperar a que el contrato esté listo
+      return;
+    }
+
     setLoadingProducts(true);
     try {
       const allProducts = await getAllProducts();

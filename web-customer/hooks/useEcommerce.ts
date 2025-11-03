@@ -5,10 +5,22 @@ import { ethers } from 'ethers';
 import {
   getEcommerceContract,
   getEcommerceContractWithSigner,
+  ECOMMERCE_ABI,
   Product,
   CartItem,
   Invoice,
 } from '@/lib/contracts';
+
+// Helper para crear un provider si no hay uno disponible
+function getOrCreateProvider(provider: ethers.BrowserProvider | null): ethers.Provider {
+  if (provider) {
+    return provider;
+  }
+  const rpcUrl = typeof window !== 'undefined' 
+    ? (process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545')
+    : 'http://localhost:8545';
+  return new ethers.JsonRpcProvider(rpcUrl);
+}
 
 const ECOMMERCE_ADDRESS = typeof window !== 'undefined'
   ? (process.env.NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS || '')
@@ -19,25 +31,43 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
   const [contractWithSigner, setContractWithSigner] = useState<ethers.Contract | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    if (!provider || !ECOMMERCE_ADDRESS) return;
+    if (!ECOMMERCE_ADDRESS) {
+      setError('Dirección del contrato Ecommerce no configurada');
+      setIsInitializing(false);
+      return;
+    }
 
+    setIsInitializing(true);
     const initContracts = async () => {
       try {
-        const contractInstance = await getEcommerceContract(provider, ECOMMERCE_ADDRESS);
+        // Si hay provider, usarlo. Si no, crear un JsonRpcProvider para lectura
+        const contractProvider = getOrCreateProvider(provider);
+        
+        // Crear el contrato directamente usando el ABI completo
+        const contractInstance = new ethers.Contract(
+          ECOMMERCE_ADDRESS,
+          ECOMMERCE_ABI,
+          contractProvider
+        );
+        
         setContract(contractInstance);
 
-        if (address) {
+        if (address && provider) {
           const contractWithSignerInstance = await getEcommerceContractWithSigner(
             provider,
             ECOMMERCE_ADDRESS
           );
           setContractWithSigner(contractWithSignerInstance);
         }
+        setError(null);
       } catch (err) {
         console.error('Error initializing contracts:', err);
-        setError('Error al inicializar contratos');
+        setError('Error al inicializar contratos: ' + (err instanceof Error ? err.message : 'Error desconocido'));
+      } finally {
+        setIsInitializing(false);
       }
     };
 
@@ -320,6 +350,8 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     contractWithSigner,
     loading,
     error,
+    isReady: !!contract && !isInitializing,
+    isInitializing,
     // Productos
     getAllProducts,
     getProduct,
