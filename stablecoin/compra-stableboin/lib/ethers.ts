@@ -36,57 +36,57 @@ export async function connectWallet(): Promise<string> {
 
 /**
  * Obtener el balance de tokens ERC20
- * IMPORTANTE: Usa JsonRpcProvider directo para evitar cache de MetaMask
+ * IMPORTANTE: Usa API route como proxy para evitar problemas de CORS
  */
 export async function getTokenBalance(
   contractAddress: string,
   userAddress: string,
   forceRefresh: boolean = false
 ): Promise<string> {
-  // Usar JsonRpcProvider directo en lugar de BrowserProvider para evitar cache
-  // El BrowserProvider de MetaMask puede cachear datos, causando que el balance no se actualice
-  const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545';
+  // Usar API route como proxy para evitar problemas de CORS cuando se llama desde el navegador
+  // Esto permite que el servidor de Next.js haga la petición a la RPC
+  const useProxy = typeof window !== 'undefined'; // Solo usar proxy en el cliente
   
-  if (!rpcUrl) {
-    throw new Error('NEXT_PUBLIC_RPC_URL no está configurada');
-  }
-
-  console.log(`🌐 Conectando a RPC: ${rpcUrl}`);
-  
-  // Configurar opciones del provider para evitar problemas de CORS y network
-  const provider = new ethers.JsonRpcProvider(
-    rpcUrl,
-    undefined,
-    {
-      staticNetwork: false, // Permitir que detecte la red automáticamente
-      batchMaxCount: 1, // No usar batching para evitar problemas
-    }
-  );
-
-  // ABI mínimo para balanceOf
-  const abi = ['function balanceOf(address) view returns (uint256)'];
-  const contract = new ethers.Contract(contractAddress, abi, provider);
-  
-  // Siempre usar blockTag 'latest' para obtener el balance más reciente
-  // Esto evita cualquier problema de cache
-  try {
-    // Verificar que el provider esté disponible antes de hacer la llamada
-    await provider.getBlockNumber().catch((err) => {
-      console.error('❌ Error conectando a RPC:', err);
-      throw new Error(`No se puede conectar a la RPC en ${rpcUrl}. ¿Está Anvil corriendo?`);
-    });
-
-    const balance = await contract.balanceOf(userAddress, { blockTag: 'latest' });
-    return ethers.formatUnits(balance, 6); // USDToken tiene 6 decimales
-  } catch (error) {
-    console.error('❌ Error al obtener balance:', error);
-    if (error instanceof Error) {
-      // Si es un error de red, proporcionar un mensaje más útil
-      if (error.message.includes('fetch') || error.message.includes('Network')) {
-        throw new Error(`Error de red al conectar a ${rpcUrl}. Verifica que Anvil esté corriendo en el puerto 8545.`);
+  if (useProxy) {
+    // Usar API route como proxy (evita CORS)
+    console.log(`🌐 Usando API route como proxy para RPC`);
+    
+    try {
+      // Crear un provider que use la API route
+      const proxyUrl = '/api/rpc';
+      const provider = new ethers.JsonRpcProvider(proxyUrl);
+      
+      // ABI mínimo para balanceOf
+      const abi = ['function balanceOf(address) view returns (uint256)'];
+      const contract = new ethers.Contract(contractAddress, abi, provider);
+      
+      // Verificar conexión
+      await provider.getBlockNumber().catch((err) => {
+        console.error('❌ Error conectando a RPC via proxy:', err);
+        throw new Error('No se puede conectar a la RPC. ¿Está Anvil corriendo?');
+      });
+      
+      const balance = await contract.balanceOf(userAddress, { blockTag: 'latest' });
+      return ethers.formatUnits(balance, 6); // USDToken tiene 6 decimales
+    } catch (error) {
+      console.error('❌ Error al obtener balance:', error);
+      if (error instanceof Error) {
+        if (error.message.includes('fetch') || error.message.includes('Network')) {
+          throw new Error('Error de red. Verifica que Anvil esté corriendo en http://localhost:8545');
+        }
       }
+      throw error;
     }
-    throw error;
+  } else {
+    // En el servidor, usar conexión directa
+    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545';
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    
+    const abi = ['function balanceOf(address) view returns (uint256)'];
+    const contract = new ethers.Contract(contractAddress, abi, provider);
+    
+    const balance = await contract.balanceOf(userAddress, { blockTag: 'latest' });
+    return ethers.formatUnits(balance, 6);
   }
 }
 
