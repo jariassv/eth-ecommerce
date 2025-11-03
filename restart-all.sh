@@ -52,10 +52,11 @@ if [ ! -f "out/USDToken.sol/USDToken.json" ]; then
 fi
 export PRIVATE_KEY
 DEPLOY_OUTPUT=$(forge script script/DeployUSDToken.s.sol --rpc-url http://localhost:8545 --broadcast --private-key $PRIVATE_KEY -vvv 2>&1)
-USD_TOKEN_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -oP "USDToken deployed at: \K0x[a-fA-F0-9]{40}" | tail -1)
+# Extraer dirección del contrato desplegado
+USD_TOKEN_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "USDToken deployed at:" | tail -1 | sed -n 's/.*USDToken deployed at: \(0x[a-fA-F0-9]\{40\}\).*/\1/p')
 if [ -z "$USD_TOKEN_ADDRESS" ]; then
-    # Fallback: buscar en el output de forge
-    USD_TOKEN_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -i "contract address" | grep -oP "0x[a-fA-F0-9]{40}" | tail -1)
+    # Fallback: buscar cualquier dirección en las últimas líneas del output
+    USD_TOKEN_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -iE "0x[a-fA-F0-9]{40}" | tail -1 | grep -oE "0x[a-fA-F0-9]{40}" | tail -1)
 fi
 if [ -z "$USD_TOKEN_ADDRESS" ]; then
     print_error "No se pudo obtener la dirección del contrato USDToken"
@@ -73,9 +74,9 @@ if [ ! -f "out/EURToken.sol/EURToken.json" ]; then
 fi
 export PRIVATE_KEY
 DEPLOY_OUTPUT=$(forge script script/DeployEURToken.s.sol --rpc-url http://localhost:8545 --broadcast --private-key $PRIVATE_KEY -vvv 2>&1)
-EUR_TOKEN_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -oP "EURToken deployed at: \K0x[a-fA-F0-9]{40}" | tail -1)
+EUR_TOKEN_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "EURToken deployed at:" | tail -1 | sed -n 's/.*EURToken deployed at: \(0x[a-fA-F0-9]\{40\}\).*/\1/p')
 if [ -z "$EUR_TOKEN_ADDRESS" ]; then
-    EUR_TOKEN_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -i "contract address" | grep -oP "0x[a-fA-F0-9]{40}" | tail -1)
+    EUR_TOKEN_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -iE "0x[a-fA-F0-9]{40}" | tail -1 | grep -oE "0x[a-fA-F0-9]{40}" | tail -1)
 fi
 if [ -z "$EUR_TOKEN_ADDRESS" ]; then
     print_error "No se pudo obtener la dirección del contrato EURToken"
@@ -94,9 +95,9 @@ fi
 export PRIVATE_KEY
 export USDTOKEN_ADDRESS=$USD_TOKEN_ADDRESS
 DEPLOY_OUTPUT=$(forge script script/DeployEcommerce.s.sol --rpc-url http://localhost:8545 --broadcast --private-key $PRIVATE_KEY -vvv 2>&1)
-ECOMMERCE_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -oP "Ecommerce deployed at: \K0x[a-fA-F0-9]{40}" | tail -1)
+ECOMMERCE_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "Ecommerce deployed at:" | tail -1 | sed -n 's/.*Ecommerce deployed at: \(0x[a-fA-F0-9]\{40\}\).*/\1/p')
 if [ -z "$ECOMMERCE_ADDRESS" ]; then
-    ECOMMERCE_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -i "contract address" | grep -oP "0x[a-fA-F0-9]{40}" | tail -1)
+    ECOMMERCE_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -iE "0x[a-fA-F0-9]{40}" | tail -1 | grep -oE "0x[a-fA-F0-9]{40}" | tail -1)
 fi
 if [ -z "$ECOMMERCE_ADDRESS" ]; then
     print_error "No se pudo obtener la dirección del contrato Ecommerce"
