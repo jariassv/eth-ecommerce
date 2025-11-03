@@ -74,6 +74,14 @@ export interface Invoice {
 }
 
 /**
+ * Interfaz TypeScript para CartItem
+ */
+export interface CartItem {
+  productId: bigint;
+  quantity: bigint;
+}
+
+/**
  * Obtener instancia del contrato Ecommerce
  */
 export async function getEcommerceContract(

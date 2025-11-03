@@ -9,6 +9,7 @@ import {
   Product,
   Company,
   Invoice,
+  CartItem,
 } from '@/lib/contracts';
 
 // Helper para crear un provider si no hay uno disponible
@@ -350,6 +351,21 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     }
   }, [contract]);
 
+  const getInvoiceItems = useCallback(async (invoiceId: bigint): Promise<CartItem[]> => {
+    if (!contract) throw new Error('Contrato no inicializado');
+    
+    try {
+      const items = await contract.getInvoiceItems(invoiceId);
+      return items.map((item: any) => ({
+        productId: BigInt(item.productId.toString()),
+        quantity: BigInt(item.quantity.toString()),
+      }));
+    } catch (err: any) {
+      setError(err.message || 'Error al obtener items de factura');
+      throw err;
+    }
+  }, [contract]);
+
   return {
     contract,
     contractWithSigner,
@@ -368,9 +384,10 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setProductActive,
     getCompanyProducts,
     getProduct,
-    // Facturas
-    getCompanyInvoices,
-    getInvoice,
+  // Facturas
+  getCompanyInvoices,
+  getInvoice,
+  getInvoiceItems,
   };
 }
 
