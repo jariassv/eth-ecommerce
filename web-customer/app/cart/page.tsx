@@ -10,30 +10,43 @@ import Header from '@/components/Header';
 import Link from 'next/link';
 
 export default function CartPage() {
-  const { provider, address } = useWallet();
-  const { contract, getCart, getProduct, getCartTotal, clearCart, createInvoice, getCompany, loading } = useEcommerce(provider, address);
+  const { provider, address, isConnected } = useWallet();
+  const { contract, getCart, getProduct, getCartTotal, clearCart, createInvoice, getCompany, loading, isReady } = useEcommerce(provider, address);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Map<string, Product>>(new Map());
   const [total, setTotal] = useState<bigint>(0n);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadingCart, setLoadingCart] = useState(true);
 
   useEffect(() => {
-    if (address) {
+    if (address && isReady) {
       loadCart();
     }
-  }, [address]);
+  }, [address, isReady]);
 
   const loadCart = async () => {
+    if (!isReady || !address) {
+      setLoadingCart(false);
+      return;
+    }
+
     try {
+      setLoadingCart(true);
+      setError(null);
+      
       const cart = await getCart();
       setCartItems(cart);
 
       // Cargar detalles de productos
       const productsMap = new Map<string, Product>();
       for (const item of cart) {
-        const product = await getProduct(item.productId);
-        productsMap.set(item.productId.toString(), product);
+        try {
+          const product = await getProduct(item.productId);
+          productsMap.set(item.productId.toString(), product);
+        } catch (err) {
+          console.error(`Error loading product ${item.productId}:`, err);
+        }
       }
       setProducts(productsMap);
 
@@ -41,7 +54,10 @@ export default function CartPage() {
       const cartTotal = await getCartTotal();
       setTotal(cartTotal);
     } catch (err: any) {
+      console.error('Error loading cart:', err);
       setError(err.message || 'Error al cargar carrito');
+    } finally {
+      setLoadingCart(false);
     }
   };
 
@@ -108,6 +124,22 @@ export default function CartPage() {
   }
 
   const totalFormatted = formatTokenAmount(total, 6);
+
+  if (!isConnected || !address) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/30">
+        <Header />
+        <main className="container mx-auto px-4 py-16">
+          <div className="max-w-2xl mx-auto text-center bg-white rounded-2xl shadow-xl p-8">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Conecta tu Wallet</h1>
+            <p className="text-gray-600 mb-6">
+              Necesitas conectar tu wallet para ver tu carrito de compras
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/30">
