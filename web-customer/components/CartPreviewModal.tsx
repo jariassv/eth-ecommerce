@@ -8,6 +8,67 @@ import { formatTokenAmount } from '@/lib/ethers';
 import { getIPFSImageUrl } from '@/lib/ipfs';
 import Link from 'next/link';
 
+// Componente para cada item del carrito
+function CartItemRow({ item, product, onRemove }: { item: CartItem; product: Product; onRemove: () => Promise<void> }) {
+  const [removing, setRemoving] = useState(false);
+
+  const handleRemove = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`¿Deseas remover ${product.name} del carrito?`)) return;
+
+    setRemoving(true);
+    try {
+      await onRemove();
+    } catch (err: any) {
+      console.error('Error al remover del carrito:', err);
+      alert(err.message || 'Error al remover del carrito');
+    } finally {
+      setRemoving(false);
+    }
+  };
+
+  const itemTotal = product.price * item.quantity;
+  const imageUrl = product.ipfsImageHash
+    ? getIPFSImageUrl(product.ipfsImageHash)
+    : '/placeholder-product.png';
+
+  return (
+    <div className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+      <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+        <img
+          src={imageUrl}
+          alt={product.name}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = '/placeholder-product.png';
+          }}
+        />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h3 className="font-semibold text-gray-900 truncate">{product.name}</h3>
+        <p className="text-sm text-gray-600">Cantidad: {item.quantity.toString()}</p>
+        <p className="text-lg font-bold text-indigo-600 mt-1">
+          ${formatTokenAmount(itemTotal, 6)}
+        </p>
+      </div>
+      <button
+        onClick={handleRemove}
+        disabled={removing}
+        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        aria-label="Quitar del carrito"
+      >
+        {removing ? (
+          <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+        ) : (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
+
 interface CartPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -16,7 +77,7 @@ interface CartPreviewModalProps {
 
 export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: CartPreviewModalProps) {
   const { provider, address, isConnected } = useWallet();
-  const { getCart, getProduct, getCartTotal, clearCart, createInvoice, getCompany, isReady } = useEcommerce(provider, address);
+  const { getCart, getProduct, getCartTotal, clearCart, createInvoice, getCompany, removeFromCart, isReady } = useEcommerce(provider, address);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Map<string, Product>>(new Map());
   const [total, setTotal] = useState<bigint>(0n);
@@ -176,31 +237,20 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
                 const product = products.get(item.productId.toString());
                 if (!product) return null;
 
-                const itemTotal = product.price * item.quantity;
-                const imageUrl = product.ipfsImageHash
-                  ? getIPFSImageUrl(product.ipfsImageHash)
-                  : '/placeholder-product.png';
-
                 return (
-                  <div key={item.productId.toString()} className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                    <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                      <img
-                        src={imageUrl}
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/placeholder-product.png';
-                        }}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 truncate">{product.name}</h3>
-                      <p className="text-sm text-gray-600">Cantidad: {item.quantity.toString()}</p>
-                      <p className="text-lg font-bold text-indigo-600 mt-1">
-                        ${formatTokenAmount(itemTotal, 6)}
-                      </p>
-                    </div>
-                  </div>
+                  <CartItemRow
+                    key={item.productId.toString()}
+                    item={item}
+                    product={product}
+                    onRemove={async () => {
+                      await removeFromCart(item.productId);
+                      await loadCart();
+                      if (onCartUpdate) {
+                        onCartUpdate();
+                      }
+                      window.dispatchEvent(new CustomEvent('cartUpdated'));
+                    }}
+                  />
                 );
               })}
             </div>

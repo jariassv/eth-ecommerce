@@ -177,6 +177,54 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     }
   }, [contractWithSigner]);
 
+  const removeFromCart = useCallback(async (productId: bigint): Promise<string> => {
+    if (!contractWithSigner) throw new Error('Wallet no conectada');
+    
+    setLoading(true);
+    setError(null);
+    try {
+      console.log('Removiendo del carrito:', { productId: productId.toString() });
+      const tx = await contractWithSigner.removeFromCart(productId);
+      console.log('Transacción enviada:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('Transacción confirmada:', receipt);
+      return receipt.hash;
+    } catch (err: any) {
+      console.error('Error en removeFromCart:', err);
+      if (err.code === 4001) {
+        throw new Error('Transacción rechazada por el usuario');
+      }
+      setError(err.message || 'Error al remover del carrito');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [contractWithSigner]);
+
+  const updateCartItem = useCallback(async (productId: bigint, quantity: bigint): Promise<string> => {
+    if (!contractWithSigner) throw new Error('Wallet no conectada');
+    
+    setLoading(true);
+    setError(null);
+    try {
+      console.log('Actualizando item del carrito:', { productId: productId.toString(), quantity: quantity.toString() });
+      const tx = await contractWithSigner.updateCartItem(productId, quantity);
+      console.log('Transacción enviada:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('Transacción confirmada:', receipt);
+      return receipt.hash;
+    } catch (err: any) {
+      console.error('Error en updateCartItem:', err);
+      if (err.code === 4001) {
+        throw new Error('Transacción rechazada por el usuario');
+      }
+      setError(err.message || 'Error al actualizar item del carrito');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [contractWithSigner]);
+
   const clearCart = useCallback(async (): Promise<void> => {
     if (!contractWithSigner) throw new Error('Wallet no conectada');
     
@@ -370,6 +418,8 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     // Carrito
     getCart,
     addToCart,
+    removeFromCart,
+    updateCartItem,
     clearCart,
     getCartTotal,
     // Facturas
