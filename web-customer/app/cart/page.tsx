@@ -5,6 +5,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { CartItem, Product } from '@/lib/contracts';
 import { formatTokenAmount } from '@/lib/ethers';
+import { getIPFSImageUrl } from '@/lib/ipfs';
 import Header from '@/components/Header';
 import Link from 'next/link';
 
@@ -165,7 +166,7 @@ export default function CartPage() {
                   const itemTotal = product.price * item.quantity;
                   const itemTotalFormatted = formatTokenAmount(itemTotal, 6);
                   const imageUrl = product.ipfsImageHash
-                    ? `https://cloudflare-ipfs.com/ipfs/${product.ipfsImageHash}`
+                    ? getIPFSImageUrl(product.ipfsImageHash)
                     : '/placeholder-product.png';
 
                   return (
