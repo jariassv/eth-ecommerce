@@ -22,6 +22,7 @@ export default function Home() {
   });
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [balance, setBalance] = useState<string>('0.00');
+  const [tokenType, setTokenType] = useState<'USDT' | 'EURT'>('USDT');
   const [errors, setErrors] = useState<string[]>([]);
 
   useEffect(() => {
@@ -106,6 +107,7 @@ export default function Home() {
             <WalletInfo 
               onAddressChange={setWalletAddress}
               onBalanceChange={setBalance}
+              onTokenTypeChange={setTokenType}
             />
           </div>
 
@@ -119,6 +121,7 @@ export default function Home() {
                 invoiceId={params.invoice}
                 merchantAddress={params.merchant_address}
                 redirectUrl={params.redirect}
+                tokenType={tokenType}
               />
             )}
           </div>
