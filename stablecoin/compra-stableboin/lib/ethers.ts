@@ -39,7 +39,8 @@ export async function connectWallet(): Promise<string> {
  */
 export async function getTokenBalance(
   contractAddress: string,
-  userAddress: string
+  userAddress: string,
+  forceRefresh: boolean = false
 ): Promise<string> {
   const provider = await getProvider();
   if (!provider) {
@@ -50,7 +51,9 @@ export async function getTokenBalance(
   const abi = ['function balanceOf(address) view returns (uint256)'];
   const contract = new ethers.Contract(contractAddress, abi, provider);
   
-  const balance = await contract.balanceOf(userAddress);
+  // Si forceRefresh es true, usar blockTag 'latest' para obtener el balance más reciente
+  const options = forceRefresh ? { blockTag: 'latest' } : {};
+  const balance = await contract.balanceOf(userAddress, options);
   return ethers.formatUnits(balance, 6); // USDToken tiene 6 decimales
 }
 

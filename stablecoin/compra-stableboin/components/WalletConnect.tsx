@@ -73,14 +73,16 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
     }
   };
 
-  const loadBalance = async () => {
+  const loadBalance = async (forceRefresh: boolean = false) => {
     if (!address || !usdTokenAddress) return;
 
     try {
-      const tokenBalance = await getTokenBalance(usdTokenAddress, address);
+      console.log(`🔄 Refrescando balance para: ${address} (forceRefresh: ${forceRefresh})`);
+      const tokenBalance = await getTokenBalance(usdTokenAddress, address, forceRefresh);
+      console.log(`💰 Balance obtenido: ${tokenBalance} USDT`);
       setBalance(formatTokenAmount(tokenBalance));
     } catch (err) {
-      console.error('Error loading balance:', err);
+      console.error('❌ Error loading balance:', err);
       setBalance('0.00');
     }
   };
@@ -88,17 +90,17 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
   // Función pública para refrescar balance (usada desde el componente padre)
   const refreshBalance = () => {
     if (address && usdTokenAddress) {
-      loadBalance();
+      loadBalance(true); // Forzar refresh con blockTag 'latest'
     }
   };
 
   // Exponer refreshBalance al componente padre usando useEffect
   useEffect(() => {
     if (address && usdTokenAddress) {
-      // Refrescar balance cada 5 segundos mientras hay una dirección
+      // Refrescar balance cada 3 segundos mientras hay una dirección (reducido para respuesta más rápida)
       const interval = setInterval(() => {
-        loadBalance();
-      }, 5000);
+        loadBalance(false);
+      }, 3000);
       
       return () => clearInterval(interval);
     }

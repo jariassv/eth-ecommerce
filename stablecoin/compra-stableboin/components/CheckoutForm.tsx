@@ -60,15 +60,22 @@ export default function CheckoutForm({
         setSuccess(true);
         
         // Notificar al componente padre que el pago se completó
+        // Hacer múltiples llamadas para asegurar que el balance se refresque
         if (onPaymentComplete) {
+          // Llamar inmediatamente
           onPaymentComplete();
+          
+          // Llamar después de 2, 5 y 8 segundos para dar tiempo al webhook
+          setTimeout(() => onPaymentComplete(), 2000);
+          setTimeout(() => onPaymentComplete(), 5000);
+          setTimeout(() => onPaymentComplete(), 8000);
         }
         
         // El webhook se encargará del mint
-        // Esperar un poco más para que el webhook procese
+        // Esperar más tiempo para que el webhook procese y se vea el balance actualizado
         setTimeout(() => {
           onSuccess();
-        }, 3000);
+        }, 10000);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
