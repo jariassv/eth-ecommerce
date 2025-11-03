@@ -77,6 +77,10 @@ export default function TokenPurchase({ walletAddress, onPaymentComplete }: Toke
     setClientSecret(null);
     setAmount('');
     setError(null);
+    // Asegurar que se refresque el balance al cancelar también
+    if (onPaymentComplete) {
+      onPaymentComplete();
+    }
   };
 
   if (!walletAddress) {

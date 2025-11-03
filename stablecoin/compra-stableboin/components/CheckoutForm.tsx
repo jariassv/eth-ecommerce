@@ -61,21 +61,33 @@ export default function CheckoutForm({
         
         // Notificar al componente padre que el pago se completó
         // Hacer múltiples llamadas para asegurar que el balance se refresque
-        if (onPaymentComplete) {
-          // Llamar inmediatamente
-          onPaymentComplete();
-          
-          // Llamar después de 2, 5 y 8 segundos para dar tiempo al webhook
-          setTimeout(() => onPaymentComplete(), 2000);
-          setTimeout(() => onPaymentComplete(), 5000);
-          setTimeout(() => onPaymentComplete(), 8000);
-        }
+        // Usar una función helper para mantener las referencias incluso después del desmontaje
+        const triggerRefresh = () => {
+          if (onPaymentComplete) {
+            onPaymentComplete();
+          }
+        };
+
+        // Llamar inmediatamente
+        triggerRefresh();
+        
+        // Guardar los timeouts para poder limpiarlos si es necesario
+        const timeouts: NodeJS.Timeout[] = [];
+        
+        // Llamar después de 2, 4, 6, 8, 10, 12 segundos para dar tiempo al webhook
+        // Esto asegura que incluso si hay delay, el balance se actualice
+        [2000, 4000, 6000, 8000, 10000, 12000].forEach((delay) => {
+          const timeout = setTimeout(() => triggerRefresh(), delay);
+          timeouts.push(timeout);
+        });
         
         // El webhook se encargará del mint
         // Esperar más tiempo para que el webhook procese y se vea el balance actualizado
         setTimeout(() => {
+          // Limpiar timeouts si el componente se desmonta antes
+          timeouts.forEach(clearTimeout);
           onSuccess();
-        }, 10000);
+        }, 15000);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';

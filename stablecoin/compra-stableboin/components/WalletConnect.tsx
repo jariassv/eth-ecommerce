@@ -39,7 +39,9 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
 
   useEffect(() => {
     if (address && usdTokenAddress) {
-      loadBalance();
+      // Cuando refreshTrigger cambia, forzar un refresh inmediato
+      console.log(`🔄 RefreshTrigger cambió a: ${refreshTrigger}`);
+      loadBalance(true); // Forzar refresh con blockTag 'latest'
     }
   }, [address, usdTokenAddress, refreshTrigger]); // Refrescar cuando cambia refreshTrigger
 
@@ -161,19 +163,38 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
         </div>
         
         <div>
-          <p className="text-sm text-gray-600 mb-1">Balance USDT:</p>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-sm text-gray-600">Balance USDT:</p>
+            <button
+              onClick={() => loadBalance(true)}
+              disabled={loading}
+              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-50"
+              title="Refrescar balance"
+            >
+              🔄 Actualizar
+            </button>
+          </div>
           <p className="text-2xl font-bold text-indigo-600">
             {balance} USDT
           </p>
         </div>
       </div>
 
-      <button
-        onClick={handleDisconnect}
-        className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors"
-      >
-        Desconectar
-      </button>
+      <div className="flex gap-2">
+        <button
+          onClick={() => loadBalance(true)}
+          disabled={loading}
+          className="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+        >
+          {loading ? 'Cargando...' : '🔄 Refrescar Balance'}
+        </button>
+        <button
+          onClick={handleDisconnect}
+          className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+        >
+          Desconectar
+        </button>
+      </div>
     </div>
   );
 }
