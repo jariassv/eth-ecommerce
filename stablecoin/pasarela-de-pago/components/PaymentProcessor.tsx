@@ -318,18 +318,20 @@ export default function PaymentProcessor({
         )}
 
         {step === 'pay' && !hasInsufficientBalance && (
-          <button
-            onClick={handlePay}
-            disabled={loading || tokenType === 'EURT'}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Procesando pago...' : `Pagar ${tokenType === 'EURT' ? '€' : '$'}${amount.toFixed(2)} ${tokenType}`}
-          </button>
-          {tokenType === 'EURT' && (
-            <p className="text-xs text-center text-gray-500 mt-2">
-              Por favor cambia a USDT para procesar el pago
-            </p>
-          )}
+          <div>
+            <button
+              onClick={handlePay}
+              disabled={loading || tokenType === 'EURT'}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Procesando pago...' : `Pagar ${tokenType === 'EURT' ? '€' : '$'}${amount.toFixed(2)} ${tokenType}`}
+            </button>
+            {tokenType === 'EURT' && (
+              <p className="text-xs text-center text-gray-500 mt-2">
+                Por favor cambia a USDT para procesar el pago
+              </p>
+            )}
+          </div>
         )}
       </div>
     </div>
