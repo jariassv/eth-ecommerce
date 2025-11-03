@@ -11,11 +11,13 @@ interface WalletConnectProps {
 
 export default function WalletConnect({ onAddressChange, refreshTrigger }: WalletConnectProps) {
   const [address, setAddress] = useState<string | null>(null);
-  const [balance, setBalance] = useState<string>('0.00');
+  const [usdtBalance, setUsdtBalance] = useState<string>('0.00');
+  const [eurtBalance, setEurtBalance] = useState<string>('0.00');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const usdTokenAddress = process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS || '';
+  const eurTokenAddress = process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '';
 
   useEffect(() => {
     // Verificar si hay una cuenta conectada
@@ -38,12 +40,12 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
   }, []);
 
   useEffect(() => {
-    if (address && usdTokenAddress) {
+    if (address && (usdTokenAddress || eurTokenAddress)) {
       // Cuando refreshTrigger cambia, forzar un refresh inmediato
       console.log(`🔄 RefreshTrigger cambió a: ${refreshTrigger}`);
-      loadBalance(true); // Forzar refresh con blockTag 'latest'
+      loadBalances(true); // Forzar refresh con blockTag 'latest'
     }
-  }, [address, usdTokenAddress, refreshTrigger]); // Refrescar cuando cambia refreshTrigger
+  }, [address, usdTokenAddress, eurTokenAddress, refreshTrigger]); // Refrescar cuando cambia refreshTrigger
 
   useEffect(() => {
     onAddressChange(address);
@@ -52,7 +54,8 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
   const handleAccountsChanged = (accounts: string[]) => {
     if (accounts.length === 0) {
       setAddress(null);
-      setBalance('0.00');
+      setUsdtBalance('0.00');
+      setEurtBalance('0.00');
     } else {
       setAddress(accounts[0]);
     }
@@ -75,45 +78,61 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
     }
   };
 
-  const loadBalance = async (forceRefresh: boolean = false) => {
-    if (!address || !usdTokenAddress) return;
+  const loadBalances = async (forceRefresh: boolean = false) => {
+    if (!address) return;
 
     try {
-      console.log(`🔄 Refrescando balance para: ${address}`);
-      console.log(`   Contrato: ${usdTokenAddress}`);
-      console.log(`   Usando RPC directo (sin cache de MetaMask)`);
+      console.log(`🔄 Refrescando balances para: ${address}`);
+      setError(null);
       
-      const tokenBalance = await getTokenBalance(usdTokenAddress, address, forceRefresh);
+      // Cargar balance de USDT
+      if (usdTokenAddress) {
+        try {
+          const usdtBalanceValue = await getTokenBalance(usdTokenAddress, address, forceRefresh);
+          console.log(`💰 Balance USDT: ${usdtBalanceValue}`);
+          setUsdtBalance(formatTokenAmount(usdtBalanceValue));
+        } catch (err) {
+          console.error('Error cargando balance USDT:', err);
+          setUsdtBalance('0.00');
+        }
+      }
       
-      console.log(`💰 Balance obtenido directamente de blockchain: ${tokenBalance} USDT`);
-      setBalance(formatTokenAmount(tokenBalance));
-      setError(null); // Limpiar errores previos si funciona
+      // Cargar balance de EURT
+      if (eurTokenAddress) {
+        try {
+          const eurtBalanceValue = await getTokenBalance(eurTokenAddress, address, forceRefresh);
+          console.log(`💰 Balance EURT: ${eurtBalanceValue}`);
+          setEurtBalance(formatTokenAmount(eurtBalanceValue));
+        } catch (err) {
+          console.error('Error cargando balance EURT:', err);
+          setEurtBalance('0.00');
+        }
+      }
     } catch (err) {
-      console.error('❌ Error loading balance:', err);
+      console.error('❌ Error loading balances:', err);
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
-      setError(`Error al cargar balance: ${errorMessage}`);
-      setBalance('0.00');
+      setError(`Error al cargar balances: ${errorMessage}`);
     }
   };
 
   // Función pública para refrescar balance (usada desde el componente padre)
   const refreshBalance = () => {
-    if (address && usdTokenAddress) {
-      loadBalance(true); // Forzar refresh con blockTag 'latest'
+    if (address) {
+      loadBalances(true); // Forzar refresh con blockTag 'latest'
     }
   };
 
   // Exponer refreshBalance al componente padre usando useEffect
   useEffect(() => {
-    if (address && usdTokenAddress) {
-      // Refrescar balance cada 3 segundos mientras hay una dirección (reducido para respuesta más rápida)
+    if (address) {
+      // Refrescar balances cada 3 segundos mientras hay una dirección
       const interval = setInterval(() => {
-        loadBalance(false);
+        loadBalances(false);
       }, 3000);
       
       return () => clearInterval(interval);
     }
-  }, [address, usdTokenAddress]);
+  }, [address, usdTokenAddress, eurTokenAddress]);
 
   const handleConnect = async () => {
     setLoading(true);
@@ -133,7 +152,8 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
 
   const handleDisconnect = () => {
     setAddress(null);
-    setBalance('0.00');
+    setUsdtBalance('0.00');
+    setEurtBalance('0.00');
     setError(null);
   };
 
@@ -176,31 +196,36 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
           </p>
         </div>
         
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-sm text-gray-600">Balance USDT:</p>
-            <button
-              onClick={() => loadBalance(true)}
-              disabled={loading}
-              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-50"
-              title="Refrescar balance"
-            >
-              🔄 Actualizar
-            </button>
-          </div>
-          <p className="text-2xl font-bold text-indigo-600">
-            {balance} USDT
-          </p>
+        <div className="space-y-3">
+          {usdTokenAddress && (
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Balance USDT:</p>
+              <p className="text-xl font-bold text-indigo-600">
+                {usdtBalance} USDT
+              </p>
+            </div>
+          )}
+          {eurTokenAddress && (
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Balance EURT:</p>
+              <p className="text-xl font-bold text-indigo-600">
+                {eurtBalance} EURT
+              </p>
+            </div>
+          )}
+          {!usdTokenAddress && !eurTokenAddress && (
+            <p className="text-sm text-gray-500">No hay contratos configurados</p>
+          )}
         </div>
       </div>
 
       <div className="flex gap-2">
         <button
-          onClick={() => loadBalance(true)}
+          onClick={() => loadBalances(true)}
           disabled={loading}
           className="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
         >
-          {loading ? 'Cargando...' : '🔄 Refrescar Balance'}
+          {loading ? 'Cargando...' : '🔄 Refrescar'}
         </button>
         <button
           onClick={handleDisconnect}

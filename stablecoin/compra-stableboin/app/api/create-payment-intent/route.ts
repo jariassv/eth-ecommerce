@@ -14,7 +14,7 @@ function getStripeInstance(): Stripe {
 export async function POST(request: NextRequest) {
   try {
     const stripe = getStripeInstance();
-    const { amount, walletAddress } = await request.json();
+    const { amount, walletAddress, tokenType = 'USDT' } = await request.json();
 
     // Validaciones
     if (!amount || amount <= 0) {
@@ -31,19 +31,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convertir dólares a centavos (Stripe usa centavos)
+    // Validar tipo de token
+    if (tokenType !== 'USDT' && tokenType !== 'EURT') {
+      return NextResponse.json(
+        { error: 'Tipo de token inválido. Debe ser USDT o EURT' },
+        { status: 400 }
+      );
+    }
+
+    // Determinar moneda y descripción según el tipo de token
+    const currency = tokenType === 'EURT' ? 'eur' : 'usd';
+    const tokenSymbol = tokenType === 'EURT' ? 'EURT' : 'USDT';
+    
+    // Convertir a centavos/céntimos (Stripe usa centavos)
     const amountInCents = Math.round(amount * 100);
 
     // Crear Payment Intent en Stripe
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountInCents,
-      currency: 'usd',
+      currency: currency,
       metadata: {
         walletAddress,
         tokenAmount: amount.toString(),
-        tokenType: 'USDT',
+        tokenType: tokenSymbol,
       },
-      description: `Compra de ${amount} USDT`,
+      description: `Compra de ${amount} ${tokenSymbol}`,
     });
 
     return NextResponse.json({

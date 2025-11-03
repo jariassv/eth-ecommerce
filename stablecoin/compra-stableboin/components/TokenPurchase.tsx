@@ -12,6 +12,7 @@ interface TokenPurchaseProps {
 
 export default function TokenPurchase({ walletAddress, onPaymentComplete }: TokenPurchaseProps) {
   const [amount, setAmount] = useState<string>('');
+  const [tokenType, setTokenType] = useState<'USDT' | 'EURT'>('USDT');
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +39,8 @@ export default function TokenPurchase({ walletAddress, onPaymentComplete }: Toke
     }
 
     if (amountNum < 1) {
-      setError('El monto mínimo es $1 USD');
+      const currency = tokenType === 'EURT' ? '€1 EUR' : '$1 USD';
+      setError(`El monto mínimo es ${currency}`);
       return;
     }
 
@@ -54,6 +56,7 @@ export default function TokenPurchase({ walletAddress, onPaymentComplete }: Toke
         body: JSON.stringify({
           amount: amountNum,
           walletAddress,
+          tokenType,
         }),
       });
 
@@ -112,16 +115,35 @@ export default function TokenPurchase({ walletAddress, onPaymentComplete }: Toke
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-xl font-semibold mb-4 text-gray-800">Comprar USDT</h2>
+      <h2 className="text-xl font-semibold mb-4 text-gray-800">Comprar Tokens</h2>
       
       <div className="space-y-4">
+        {/* Selector de tipo de token */}
+        <div>
+          <label htmlFor="tokenType" className="block text-sm font-medium text-gray-700 mb-2">
+            Tipo de Token
+          </label>
+          <select
+            id="tokenType"
+            value={tokenType}
+            onChange={(e) => {
+              setTokenType(e.target.value as 'USDT' | 'EURT');
+              setError(null);
+            }}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          >
+            <option value="USDT">USD Token (USDT) - Pago en USD</option>
+            <option value="EURT">EUR Token (EURT) - Pago en EUR</option>
+          </select>
+        </div>
+
         <div>
           <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
-            Cantidad (USD)
+            Cantidad ({tokenType === 'EURT' ? 'EUR' : 'USD'})
           </label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-              $
+              {tokenType === 'EURT' ? '€' : '$'}
             </span>
             <input
               id="amount"
@@ -133,7 +155,7 @@ export default function TokenPurchase({ walletAddress, onPaymentComplete }: Toke
             />
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            1 USD = 1 USDT (equivalente en tokens)
+            1 {tokenType === 'EURT' ? 'EUR' : 'USD'} = 1 {tokenType} (equivalente en tokens)
           </p>
         </div>
 
@@ -148,7 +170,7 @@ export default function TokenPurchase({ walletAddress, onPaymentComplete }: Toke
           disabled={loading || !amount || parseFloat(amount) <= 0}
           className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? 'Procesando...' : `Comprar ${amount || '0'} USDT`}
+          {loading ? 'Procesando...' : `Comprar ${amount || '0'} ${tokenType}`}
         </button>
 
         <div className="text-xs text-gray-500 text-center">

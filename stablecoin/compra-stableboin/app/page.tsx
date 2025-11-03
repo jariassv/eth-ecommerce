@@ -25,10 +25,10 @@ export default function Home() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Compra USDT Tokens
+            Compra Stablecoins
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Compra tokens USDToken (USDT) de forma segura usando tu tarjeta de crédito.
+            Compra tokens USDToken (USDT) o EURToken (EURT) de forma segura usando tu tarjeta de crédito.
             Los tokens se acuñarán automáticamente en tu wallet después del pago.
           </p>
         </div>
@@ -104,7 +104,7 @@ export default function Home() {
                   2
                 </span>
                 <span>
-                  <strong className="text-gray-800">Ingresa la cantidad:</strong> Especifica cuántos USDT quieres comprar (mínimo $1 USD)
+                  <strong className="text-gray-800">Selecciona el token y cantidad:</strong> Elige entre USDT o EURT y especifica cuántos quieres comprar (mínimo $1 USD o €1 EUR)
                 </span>
               </li>
               <li className="flex items-start">
