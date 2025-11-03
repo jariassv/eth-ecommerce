@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { useIPFS, getIPFSImageUrl } from '@/hooks/useIPFS';
@@ -30,6 +30,17 @@ export default function ProductForm({ companyId, product, onClose, onSuccess }: 
   const [additionalImages, setAdditionalImages] = useState<File[]>([]);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasPinataConfig, setHasPinataConfig] = useState<boolean | null>(null);
+
+  // Verificar si Pinata está configurado
+  useEffect(() => {
+    const checkPinata = async () => {
+      // Verificar si la variable está disponible (se evalúa en build time)
+      const pinataJWT = process.env.NEXT_PUBLIC_PINATA_JWT;
+      setHasPinataConfig(!!pinataJWT);
+    };
+    checkPinata();
+  }, []);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -228,7 +239,7 @@ export default function ProductForm({ companyId, product, onClose, onSuccess }: 
               <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-2">
                 Imagen Principal <span className="text-gray-500">(opcional)</span>
               </label>
-              {!process.env.NEXT_PUBLIC_PINATA_JWT && (
+              {hasPinataConfig === false && (
                 <div className="mb-2 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
                   <p className="font-semibold mb-1">⚠️ IPFS no configurado</p>
                   <p>Para subir imágenes, configura <code className="bg-yellow-100 px-1 rounded">NEXT_PUBLIC_PINATA_JWT</code> en tu archivo <code className="bg-yellow-100 px-1 rounded">.env.local</code></p>
