@@ -11,16 +11,20 @@ interface InvoicesTabProps {
 }
 
 export default function InvoicesTab({ companyId }: InvoicesTabProps) {
-  const { address, provider } = useWallet();
+  const { address, provider, isConnected } = useWallet();
   const { getCompanyInvoices, loading, isReady } = useEcommerce(provider, address);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isReady) {
+    if (isReady && isConnected) {
       loadInvoices();
+    } else if (!isConnected) {
+      setLoadingInvoices(false);
+      setError('Debes conectar tu wallet para ver las facturas');
     }
-  }, [companyId, isReady]);
+  }, [companyId, isReady, isConnected]);
 
   const loadInvoices = async () => {
     if (!isReady) {
@@ -29,10 +33,12 @@ export default function InvoicesTab({ companyId }: InvoicesTabProps) {
 
     try {
       setLoadingInvoices(true);
+      setError(null);
       const companyInvoices = await getCompanyInvoices(companyId);
       setInvoices(companyInvoices);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error loading invoices:', err);
+      setError(err.message || 'Error al cargar facturas');
     } finally {
       setLoadingInvoices(false);
     }
@@ -54,6 +60,17 @@ export default function InvoicesTab({ companyId }: InvoicesTabProps) {
       <div className="text-center py-12">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
         <p className="mt-4 text-gray-600">Cargando facturas...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+          <p className="text-red-800 font-semibold mb-2">Error al cargar facturas</p>
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
       </div>
     );
   }
