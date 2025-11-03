@@ -10,6 +10,7 @@ import {
   Company,
   Invoice,
   CartItem,
+  Review,
 } from '@/lib/contracts';
 
 // Helper para crear un provider si no hay uno disponible
@@ -378,6 +379,55 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     }
   }, [contract]);
 
+  // ============ REVIEWS ============
+
+  const getProductReviews = useCallback(async (productId: bigint): Promise<Review[]> => {
+    if (!contract) throw new Error('Contrato no inicializado');
+    
+    try {
+      const reviews = await contract.getProductReviews(productId);
+      return reviews.map((r: any) => ({
+        reviewId: BigInt(r.reviewId.toString()),
+        productId: BigInt(r.productId.toString()),
+        customerAddress: r.customerAddress,
+        rating: BigInt(r.rating.toString()),
+        comment: r.comment,
+        timestamp: BigInt(r.timestamp.toString()),
+        isVerified: r.isVerified,
+      }));
+    } catch (err: any) {
+      setError(err.message || 'Error al obtener reviews');
+      throw err;
+    }
+  }, [contract]);
+
+  const getProductAverageRating = useCallback(async (productId: bigint): Promise<{ averageRating: bigint; reviewCount: bigint }> => {
+    if (!contract) throw new Error('Contrato no inicializado');
+    
+    try {
+      const result = await contract.getProductAverageRating(productId);
+      return {
+        averageRating: BigInt(result.averageRating.toString()),
+        reviewCount: BigInt(result.reviewCount.toString()),
+      };
+    } catch (err: any) {
+      setError(err.message || 'Error al obtener rating promedio');
+      throw err;
+    }
+  }, [contract]);
+
+  const getProductReviewCount = useCallback(async (productId: bigint): Promise<bigint> => {
+    if (!contract) throw new Error('Contrato no inicializado');
+    
+    try {
+      const count = await contract.getProductReviewCount(productId);
+      return BigInt(count.toString());
+    } catch (err: any) {
+      setError(err.message || 'Error al obtener cantidad de reviews');
+      throw err;
+    }
+  }, [contract]);
+
   return {
     contract,
     contractWithSigner,
@@ -400,6 +450,10 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
   getCompanyInvoices,
   getInvoice,
   getInvoiceItems,
+  // Reviews
+  getProductReviews,
+  getProductAverageRating,
+  getProductReviewCount,
   };
 }
 

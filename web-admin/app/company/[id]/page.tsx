@@ -9,6 +9,7 @@ import Link from 'next/link';
 import ProductsTab from '@/components/ProductsTab';
 import InvoicesTab from '@/components/InvoicesTab';
 import AnalyticsTab from '@/components/AnalyticsTab';
+import ReviewsTab from '@/components/ReviewsTab';
 
 export default function CompanyPage() {
   const params = useParams();
@@ -18,7 +19,7 @@ export default function CompanyPage() {
   
   const companyId = BigInt(params.id as string);
   const [company, setCompany] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'invoices'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'invoices' | 'reviews'>('analytics');
   const [isOwner, setIsOwner] = useState<boolean | null>(null);
   const [loadingCompany, setLoadingCompany] = useState(true);
 
@@ -154,6 +155,16 @@ export default function CompanyPage() {
               >
                 Facturas
               </button>
+              <button
+                onClick={() => setActiveTab('reviews')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'reviews'
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Reviews
+              </button>
             </nav>
           </div>
 
@@ -162,6 +173,7 @@ export default function CompanyPage() {
             {activeTab === 'analytics' && <AnalyticsTab companyId={companyId} />}
             {activeTab === 'products' && <ProductsTab companyId={companyId} />}
             {activeTab === 'invoices' && <InvoicesTab companyId={companyId} />}
+            {activeTab === 'reviews' && <ReviewsTab companyId={companyId} />}
           </div>
         </div>
       </main>
