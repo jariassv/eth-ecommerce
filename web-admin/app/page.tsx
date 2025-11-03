@@ -7,8 +7,8 @@ import { useEcommerce } from '@/hooks/useEcommerce';
 import Link from 'next/link';
 
 export default function Home() {
-  const { address, isConnected, connect } = useWallet();
-  const { getCompanyIdByAddress, getOwner, isReady } = useEcommerce(null, address);
+  const { address, provider, isConnected, connect } = useWallet();
+  const { getCompanyIdByAddress, getOwner, isReady } = useEcommerce(provider, address);
   const [companyId, setCompanyId] = useState<bigint | null>(null);
   const [isOwner, setIsOwner] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);

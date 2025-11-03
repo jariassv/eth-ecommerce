@@ -8,8 +8,8 @@ import Link from 'next/link';
 import { ethers } from 'ethers';
 
 export default function RegisterPage() {
-  const { address, isConnected, connect } = useWallet();
-  const { getOwner, registerCompany, loading, error, isReady } = useEcommerce(null, address);
+  const { address, provider, isConnected, connect } = useWallet();
+  const { getOwner, registerCompany, loading, error, isReady } = useEcommerce(provider, address);
   const router = useRouter();
   
   const [companyAddress, setCompanyAddress] = useState('');

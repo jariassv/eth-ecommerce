@@ -15,8 +15,8 @@ interface ProductFormProps {
 }
 
 export default function ProductForm({ companyId, product, onClose, onSuccess }: ProductFormProps) {
-  const { address } = useWallet();
-  const { addProduct, updateProduct, loading } = useEcommerce(null, address);
+  const { address, provider } = useWallet();
+  const { addProduct, updateProduct, loading } = useEcommerce(provider, address);
   const { uploadToIPFS, uploading, error: ipfsError } = useIPFS();
 
   const [name, setName] = useState(product?.name || '');

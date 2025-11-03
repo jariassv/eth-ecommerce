@@ -13,8 +13,8 @@ interface ProductsTabProps {
 }
 
 export default function ProductsTab({ companyId }: ProductsTabProps) {
-  const { address } = useWallet();
-  const { getCompanyProducts, loading } = useEcommerce(null, address);
+  const { address, provider } = useWallet();
+  const { getCompanyProducts, loading } = useEcommerce(provider, address);
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -115,8 +115,8 @@ interface ProductCardProps {
 }
 
 function ProductCard({ product, onEdit, onToggleActive }: ProductCardProps) {
-  const { address } = useWallet();
-  const { setProductActive, loading } = useEcommerce(null, address);
+  const { address, provider } = useWallet();
+  const { setProductActive, loading } = useEcommerce(provider, address);
   const [toggling, setToggling] = useState(false);
 
   const handleToggleActive = async () => {

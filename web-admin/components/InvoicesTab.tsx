@@ -11,8 +11,8 @@ interface InvoicesTabProps {
 }
 
 export default function InvoicesTab({ companyId }: InvoicesTabProps) {
-  const { address } = useWallet();
-  const { getCompanyInvoices, loading } = useEcommerce(null, address);
+  const { address, provider } = useWallet();
+  const { getCompanyInvoices, loading } = useEcommerce(provider, address);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
 

@@ -12,8 +12,8 @@ import InvoicesTab from '@/components/InvoicesTab';
 export default function CompanyPage() {
   const params = useParams();
   const router = useRouter();
-  const { address, isConnected } = useWallet();
-  const { getCompany, getCompanyIdByAddress, loading, isReady } = useEcommerce(null, address);
+  const { address, provider, isConnected } = useWallet();
+  const { getCompany, getCompanyIdByAddress, loading, isReady } = useEcommerce(provider, address);
   
   const companyId = BigInt(params.id as string);
   const [company, setCompany] = useState<any>(null);
