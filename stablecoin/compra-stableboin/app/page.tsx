@@ -7,6 +7,7 @@ import TokenPurchase from '@/components/TokenPurchase';
 export default function Home() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
   useEffect(() => {
     // Verificar si hay parámetros de pago exitoso en la URL
@@ -65,12 +66,21 @@ export default function Home() {
         <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8">
           {/* Wallet Connect Section */}
           <div>
-            <WalletConnect onAddressChange={setWalletAddress} />
+            <WalletConnect 
+              onAddressChange={setWalletAddress} 
+              refreshTrigger={refreshTrigger}
+            />
           </div>
 
           {/* Token Purchase Section */}
           <div>
-            <TokenPurchase walletAddress={walletAddress} />
+            <TokenPurchase 
+              walletAddress={walletAddress}
+              onPaymentComplete={() => {
+                // Disparar refresh del balance después del pago
+                setRefreshTrigger(prev => prev + 1);
+              }}
+            />
           </div>
         </div>
 

@@ -12,6 +12,7 @@ interface CheckoutFormProps {
   walletAddress: string;
   onSuccess: () => void;
   onCancel: () => void;
+  onPaymentComplete?: () => void; // Callback cuando el pago se completa
 }
 
 export default function CheckoutForm({
@@ -19,6 +20,7 @@ export default function CheckoutForm({
   walletAddress,
   onSuccess,
   onCancel,
+  onPaymentComplete,
 }: CheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
@@ -56,10 +58,17 @@ export default function CheckoutForm({
         setError(confirmError.message || 'Error al procesar el pago');
       } else {
         setSuccess(true);
+        
+        // Notificar al componente padre que el pago se completó
+        if (onPaymentComplete) {
+          onPaymentComplete();
+        }
+        
         // El webhook se encargará del mint
+        // Esperar un poco más para que el webhook procese
         setTimeout(() => {
           onSuccess();
-        }, 2000);
+        }, 3000);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';

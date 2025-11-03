@@ -7,9 +7,10 @@ import CheckoutForm from './CheckoutForm';
 
 interface TokenPurchaseProps {
   walletAddress: string | null;
+  onPaymentComplete?: () => void; // Callback para refrescar balance
 }
 
-export default function TokenPurchase({ walletAddress }: TokenPurchaseProps) {
+export default function TokenPurchase({ walletAddress, onPaymentComplete }: TokenPurchaseProps) {
   const [amount, setAmount] = useState<string>('');
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -98,6 +99,7 @@ export default function TokenPurchase({ walletAddress }: TokenPurchaseProps) {
             walletAddress={walletAddress}
             onSuccess={handleCancel}
             onCancel={handleCancel}
+            onPaymentComplete={onPaymentComplete}
           />
         </Elements>
       </div>

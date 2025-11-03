@@ -6,9 +6,10 @@ import { formatTokenAmount } from '@/lib/ethers';
 
 interface WalletConnectProps {
   onAddressChange: (address: string | null) => void;
+  refreshTrigger?: number; // Número que al cambiar dispara un refresh
 }
 
-export default function WalletConnect({ onAddressChange }: WalletConnectProps) {
+export default function WalletConnect({ onAddressChange, refreshTrigger }: WalletConnectProps) {
   const [address, setAddress] = useState<string | null>(null);
   const [balance, setBalance] = useState<string>('0.00');
   const [loading, setLoading] = useState(false);
@@ -40,7 +41,7 @@ export default function WalletConnect({ onAddressChange }: WalletConnectProps) {
     if (address && usdTokenAddress) {
       loadBalance();
     }
-  }, [address, usdTokenAddress]);
+  }, [address, usdTokenAddress, refreshTrigger]); // Refrescar cuando cambia refreshTrigger
 
   useEffect(() => {
     onAddressChange(address);
@@ -83,6 +84,25 @@ export default function WalletConnect({ onAddressChange }: WalletConnectProps) {
       setBalance('0.00');
     }
   };
+
+  // Función pública para refrescar balance (usada desde el componente padre)
+  const refreshBalance = () => {
+    if (address && usdTokenAddress) {
+      loadBalance();
+    }
+  };
+
+  // Exponer refreshBalance al componente padre usando useEffect
+  useEffect(() => {
+    if (address && usdTokenAddress) {
+      // Refrescar balance cada 5 segundos mientras hay una dirección
+      const interval = setInterval(() => {
+        loadBalance();
+      }, 5000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [address, usdTokenAddress]);
 
   const handleConnect = async () => {
     setLoading(true);
