@@ -44,6 +44,17 @@ export default function ProductDetailModal({
     }
   }, [isOpen, product.productId]);
 
+  // Cerrar con ESC
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
+
   const handleImageError = (imageIndex: number) => (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const img = e.target as HTMLImageElement;
     const hash = allImages[imageIndex]?.trim();
@@ -120,8 +131,14 @@ export default function ProductDetailModal({
   const selectedImage = allImages[selectedImageIndex];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900">{product.name}</h2>
