@@ -9,6 +9,8 @@ export const ECOMMERCE_ABI = [
   
   // Carrito
   'function addToCart(uint256 productId, uint256 quantity) external',
+  'function removeFromCart(uint256 productId) external',
+  'function updateCartItem(uint256 productId, uint256 quantity) external',
   'function getCart() external view returns (tuple(uint256 productId, uint256 quantity)[])',
   'function getCartTotal() external view returns (uint256)',
   'function clearCart() external',

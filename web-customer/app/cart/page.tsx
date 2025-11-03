@@ -9,9 +9,88 @@ import { getIPFSImageUrl } from '@/lib/ipfs';
 import Header from '@/components/Header';
 import Link from 'next/link';
 
+// Componente para cada item del carrito
+function CartItemRow({ item, product, onRemove }: { item: CartItem; product: Product; onRemove: () => Promise<void> }) {
+  const [removing, setRemoving] = useState(false);
+
+  const handleRemove = async () => {
+    if (!confirm(`¿Deseas remover ${product.name} del carrito?`)) return;
+
+    setRemoving(true);
+    try {
+      await onRemove();
+    } catch (err: any) {
+      console.error('Error al remover del carrito:', err);
+      alert(err.message || 'Error al remover del carrito');
+    } finally {
+      setRemoving(false);
+    }
+  };
+
+  const itemTotal = product.price * item.quantity;
+  const itemTotalFormatted = formatTokenAmount(itemTotal, 6);
+  const imageUrl = product.ipfsImageHash
+    ? getIPFSImageUrl(product.ipfsImageHash)
+    : '/placeholder-product.png';
+
+  return (
+    <div className="p-6 hover:bg-gray-50 transition-colors">
+      <div className="flex items-center gap-6">
+        <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+          <img
+            src={imageUrl}
+            alt={product.name}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = '/placeholder-product.png';
+            }}
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-lg font-bold text-gray-900 mb-1">
+            {product.name}
+          </h3>
+          <p className="text-sm text-gray-600 line-clamp-2">
+            {product.description}
+          </p>
+          <div className="mt-2 flex items-center gap-4 text-sm">
+            <span className="text-gray-600">
+              Precio: <span className="font-semibold text-indigo-600">${formatTokenAmount(product.price, 6)} USDT</span>
+            </span>
+            <span className="text-gray-400">•</span>
+            <span className="text-gray-600">
+              Cantidad: <span className="font-semibold">{item.quantity.toString()}</span>
+            </span>
+          </div>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <p className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            ${itemTotalFormatted}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">USDT</p>
+        </div>
+        <button
+          onClick={handleRemove}
+          disabled={removing}
+          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-4"
+          aria-label="Quitar del carrito"
+        >
+          {removing ? (
+            <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function CartPage() {
   const { provider, address, isConnected } = useWallet();
-  const { contract, getCart, getProduct, getCartTotal, clearCart, createInvoice, getCompany, loading, isReady } = useEcommerce(provider, address);
+  const { contract, getCart, getProduct, getCartTotal, clearCart, createInvoice, getCompany, removeFromCart, updateCartItem, loading, isReady } = useEcommerce(provider, address);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Map<string, Product>>(new Map());
   const [total, setTotal] = useState<bigint>(0n);
@@ -171,50 +250,17 @@ export default function CartPage() {
                   const product = products.get(item.productId.toString());
                   if (!product) return null;
 
-                  const itemTotal = product.price * item.quantity;
-                  const itemTotalFormatted = formatTokenAmount(itemTotal, 6);
-                  const imageUrl = product.ipfsImageHash
-                    ? getIPFSImageUrl(product.ipfsImageHash)
-                    : '/placeholder-product.png';
-
                   return (
-                    <div key={item.productId.toString()} className="p-6 hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center gap-6">
-                        <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-                          <img
-                            src={imageUrl}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/placeholder-product.png';
-                            }}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-bold text-gray-900 mb-1">
-                            {product.name}
-                          </h3>
-                          <p className="text-sm text-gray-600 line-clamp-2">
-                            {product.description}
-                          </p>
-                          <div className="mt-2 flex items-center gap-4 text-sm">
-                            <span className="text-gray-600">
-                              Precio: <span className="font-semibold text-indigo-600">${formatTokenAmount(product.price, 6)} USDT</span>
-                            </span>
-                            <span className="text-gray-400">•</span>
-                            <span className="text-gray-600">
-                              Cantidad: <span className="font-semibold">{item.quantity.toString()}</span>
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                            ${itemTotalFormatted}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">USDT</p>
-                        </div>
-                      </div>
-                    </div>
+                    <CartItemRow
+                      key={item.productId.toString()}
+                      item={item}
+                      product={product}
+                      onRemove={async () => {
+                        await removeFromCart(item.productId);
+                        await loadCart();
+                        window.dispatchEvent(new CustomEvent('cartUpdated'));
+                      }}
+                    />
                   );
                 })}
               </div>
