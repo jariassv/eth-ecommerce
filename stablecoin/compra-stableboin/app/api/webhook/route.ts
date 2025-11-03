@@ -82,30 +82,47 @@ export async function POST(request: NextRequest) {
     }
 
   // Manejar el evento
+  console.log('📨 Evento recibido:', event.type);
+
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
+
+    console.log('💳 Payment Intent metadata:', paymentIntent.metadata);
 
     const walletAddress = paymentIntent.metadata.walletAddress;
     const tokenAmount = parseFloat(paymentIntent.metadata.tokenAmount || '0');
     const contractAddress = process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS;
 
+    console.log('📋 Datos extraídos:', {
+      walletAddress,
+      tokenAmount,
+      contractAddress,
+    });
+
     if (!walletAddress || !tokenAmount || !contractAddress) {
-      console.error('Faltan datos en el payment intent:', {
+      console.error('❌ Faltan datos en el payment intent:', {
         walletAddress,
         tokenAmount,
         contractAddress,
+        metadata: paymentIntent.metadata,
       });
       return NextResponse.json(
-        { error: 'Datos incompletos en el pago' },
+        { error: 'Datos incompletos en el pago', metadata: paymentIntent.metadata },
         { status: 400 }
       );
     }
 
     try {
+      console.log('Intentando acuñar tokens:', {
+        walletAddress,
+        tokenAmount,
+        contractAddress,
+      });
+
       // Hacer mint de tokens
       const txHash = await mintTokens(walletAddress, tokenAmount, contractAddress);
       
-      console.log('Tokens acuñados exitosamente:', {
+      console.log('✅ Tokens acuñados exitosamente:', {
         walletAddress,
         tokenAmount,
         txHash,
@@ -114,15 +131,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         received: true,
         txHash,
+        walletAddress,
+        tokenAmount,
       });
     } catch (error) {
-      console.error('Error minting tokens:', error);
+      console.error('❌ Error minting tokens:', error);
+      
+      // Log detallado del error
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
       
       // En producción, podrías querer marcar este pago para revisión
       // o intentar el mint nuevamente más tarde
       
       return NextResponse.json(
-        { error: 'Error al acuñar tokens' },
+        { 
+          error: 'Error al acuñar tokens',
+          details: error instanceof Error ? error.message : 'Error desconocido'
+        },
         { status: 500 }
       );
     }
