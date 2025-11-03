@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
-import { useIPFS, getIPFSImageUrl } from '@/hooks/useIPFS';
+import { useIPFS, getIPFSImageUrl, getNextIPFSGateway, getAllIPFSGateways } from '@/hooks/useIPFS';
 import { Product } from '@/lib/contracts';
 import { formatTokenAmount, parseTokenAmount } from '@/lib/ethers';
 import ProductForm from './ProductForm';
@@ -124,6 +124,8 @@ function ProductCard({ product, onEdit, onToggleActive }: ProductCardProps) {
   const { address, provider } = useWallet();
   const { setProductActive, loading } = useEcommerce(provider, address);
   const [toggling, setToggling] = useState(false);
+  const [currentGatewayIndex, setCurrentGatewayIndex] = useState(0);
+  const [imageError, setImageError] = useState(false);
 
   const handleToggleActive = async () => {
     if (!confirm(`¿${product.isActive ? 'Desactivar' : 'Activar'} este producto?`)) {
@@ -141,19 +143,50 @@ function ProductCard({ product, onEdit, onToggleActive }: ProductCardProps) {
     }
   };
 
-  const imageUrl = product.ipfsImageHash
-    ? getIPFSImageUrl(product.ipfsImageHash)
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const img = e.target as HTMLImageElement;
+    const hash = product.ipfsImageHash?.trim();
+    
+    if (!hash) {
+      img.src = '/placeholder-product.png';
+      return;
+    }
+
+    // Intentar con el siguiente gateway
+    const nextGatewayIndex = getNextIPFSGateway(currentGatewayIndex);
+    
+    if (nextGatewayIndex === 0) {
+      // Ya intentamos todos los gateways, usar placeholder
+      console.error('Todos los gateways IPFS fallaron para:', hash);
+      setImageError(true);
+      img.src = '/placeholder-product.png';
+      return;
+    }
+
+    // Intentar con el siguiente gateway
+    console.log(`Gateway ${currentGatewayIndex} falló, intentando con gateway ${nextGatewayIndex}`);
+    setCurrentGatewayIndex(nextGatewayIndex);
+    img.src = getIPFSImageUrl(hash, nextGatewayIndex);
+  };
+
+  const imageUrl = product.ipfsImageHash && product.ipfsImageHash.trim() && !imageError
+    ? getIPFSImageUrl(product.ipfsImageHash, currentGatewayIndex)
     : '/placeholder-product.png';
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow">
       <div className="aspect-w-16 aspect-h-9 bg-gray-100">
         <img
+          key={`${product.productId}-${currentGatewayIndex}`}
           src={imageUrl}
           alt={product.name}
           className="w-full h-48 object-cover"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = '/placeholder-product.png';
+          onError={handleImageError}
+          onLoad={() => {
+            if (product.ipfsImageHash && currentGatewayIndex > 0) {
+              console.log(`Imagen IPFS cargada correctamente con gateway ${currentGatewayIndex}:`, product.ipfsImageHash);
+            }
+            setImageError(false);
           }}
         />
       </div>

@@ -9,6 +9,7 @@ import {
   Product,
   Company,
   Invoice,
+  CartItem,
 } from '@/lib/contracts';
 
 // Helper para crear un provider si no hay uno disponible
@@ -251,18 +252,25 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setError(null);
     try {
       const products = await contract.getProductsByCompany(companyId);
-      return products.map((p: any) => ({
-        productId: BigInt(p.productId.toString()),
-        companyId: BigInt(p.companyId.toString()),
-        name: p.name,
-        description: p.description,
-        price: BigInt(p.price.toString()),
-        stock: BigInt(p.stock.toString()),
-        ipfsImageHash: p.ipfsImageHash,
-        ipfsAdditionalImages: p.ipfsAdditionalImages || [],
-        totalSales: BigInt(p.totalSales.toString()),
-        isActive: p.isActive,
-      }));
+      return products.map((p: any) => {
+        const ipfsHash = p.ipfsImageHash || '';
+        // Log para debug
+        if (ipfsHash) {
+          console.log('Producto obtenido del contrato:', p.name, 'Hash IPFS:', ipfsHash);
+        }
+        return {
+          productId: BigInt(p.productId.toString()),
+          companyId: BigInt(p.companyId.toString()),
+          name: p.name,
+          description: p.description,
+          price: BigInt(p.price.toString()),
+          stock: BigInt(p.stock.toString()),
+          ipfsImageHash: ipfsHash,
+          ipfsAdditionalImages: p.ipfsAdditionalImages || [],
+          totalSales: BigInt(p.totalSales.toString()),
+          isActive: p.isActive,
+        };
+      });
     } catch (err: any) {
       setError(err.message || 'Error al obtener productos');
       throw err;
@@ -301,12 +309,17 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
   // ============ FACTURAS ============
 
   const getCompanyInvoices = useCallback(async (companyId: bigint): Promise<Invoice[]> => {
-    if (!contract) throw new Error('Contrato no inicializado');
+    // getCompanyInvoices requiere msg.sender, necesitamos usar contractWithSigner
+    if (!contractWithSigner) {
+      // No lanzar error si no hay wallet conectado, solo retornar array vacío
+      // Esto evita errores en consola cuando el componente se carga antes de conectar wallet
+      return [];
+    }
     
     setLoading(true);
     setError(null);
     try {
-      const invoices = await contract.getCompanyInvoices(companyId);
+      const invoices = await contractWithSigner.getCompanyInvoices(companyId);
       return invoices.map((inv: any) => ({
         invoiceId: BigInt(inv.invoiceId.toString()),
         companyId: BigInt(inv.companyId.toString()),
@@ -323,7 +336,7 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     } finally {
       setLoading(false);
     }
-  }, [contract]);
+  }, [contractWithSigner]);
 
   const getInvoice = useCallback(async (invoiceId: bigint): Promise<Invoice> => {
     if (!contract) throw new Error('Contrato no inicializado');
@@ -350,6 +363,21 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     }
   }, [contract]);
 
+  const getInvoiceItems = useCallback(async (invoiceId: bigint): Promise<CartItem[]> => {
+    if (!contract) throw new Error('Contrato no inicializado');
+    
+    try {
+      const items = await contract.getInvoiceItems(invoiceId);
+      return items.map((item: any) => ({
+        productId: BigInt(item.productId.toString()),
+        quantity: BigInt(item.quantity.toString()),
+      }));
+    } catch (err: any) {
+      setError(err.message || 'Error al obtener items de factura');
+      throw err;
+    }
+  }, [contract]);
+
   return {
     contract,
     contractWithSigner,
@@ -368,9 +396,10 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setProductActive,
     getCompanyProducts,
     getProduct,
-    // Facturas
-    getCompanyInvoices,
-    getInvoice,
+  // Facturas
+  getCompanyInvoices,
+  getInvoice,
+  getInvoiceItems,
   };
 }
 
