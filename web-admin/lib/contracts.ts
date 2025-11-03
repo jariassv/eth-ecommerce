@@ -24,6 +24,12 @@ export const ECOMMERCE_ABI = [
   'function getCompanyInvoices(uint256 companyId) external view returns (tuple(uint256 invoiceId, uint256 companyId, address customerAddress, uint256 totalAmount, uint256 timestamp, bool isPaid, bytes32 paymentTxHash, uint256 itemCount)[])',
   'function getInvoiceItems(uint256 invoiceId) external view returns (tuple(uint256 productId, uint256 quantity)[])',
   
+  // Reviews
+  'function getReview(uint256 reviewId) external view returns (tuple(uint256 reviewId, uint256 productId, address customerAddress, uint256 rating, string comment, uint256 timestamp, bool isVerified))',
+  'function getProductReviews(uint256 productId) external view returns (tuple(uint256 reviewId, uint256 productId, address customerAddress, uint256 rating, string comment, uint256 timestamp, bool isVerified)[])',
+  'function getProductAverageRating(uint256 productId) external view returns (uint256 averageRating, uint256 reviewCount)',
+  'function getProductReviewCount(uint256 productId) external view returns (uint256)',
+  
   // Events
   'event CompanyRegistered(uint256 indexed companyId, address indexed companyAddress, string name)',
   'event ProductAdded(uint256 indexed productId, uint256 indexed companyId, string name, uint256 price)',
@@ -79,6 +85,19 @@ export interface Invoice {
 export interface CartItem {
   productId: bigint;
   quantity: bigint;
+}
+
+/**
+ * Interfaz TypeScript para Review
+ */
+export interface Review {
+  reviewId: bigint;
+  productId: bigint;
+  customerAddress: string;
+  rating: bigint;
+  comment: string;
+  timestamp: bigint;
+  isVerified: boolean;
 }
 
 /**
