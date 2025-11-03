@@ -8,6 +8,7 @@ import Header from '@/components/Header';
 import Link from 'next/link';
 import ProductsTab from '@/components/ProductsTab';
 import InvoicesTab from '@/components/InvoicesTab';
+import AnalyticsTab from '@/components/AnalyticsTab';
 
 export default function CompanyPage() {
   const params = useParams();
@@ -17,7 +18,7 @@ export default function CompanyPage() {
   
   const companyId = BigInt(params.id as string);
   const [company, setCompany] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'products' | 'invoices'>('products');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'invoices'>('analytics');
   const [isOwner, setIsOwner] = useState<boolean | null>(null);
   const [loadingCompany, setLoadingCompany] = useState(true);
 
@@ -124,6 +125,16 @@ export default function CompanyPage() {
           <div className="border-b border-gray-200">
             <nav className="flex -mb-px">
               <button
+                onClick={() => setActiveTab('analytics')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'analytics'
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Analytics
+              </button>
+              <button
                 onClick={() => setActiveTab('products')}
                 className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'products'
@@ -148,6 +159,7 @@ export default function CompanyPage() {
 
           {/* Tab Content */}
           <div className="p-6">
+            {activeTab === 'analytics' && <AnalyticsTab companyId={companyId} />}
             {activeTab === 'products' && <ProductsTab companyId={companyId} />}
             {activeTab === 'invoices' && <InvoicesTab companyId={companyId} />}
           </div>
