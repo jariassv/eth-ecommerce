@@ -9,20 +9,29 @@ import Header from '@/components/Header';
 import Link from 'next/link';
 
 export default function OrdersPage() {
-  const { provider, address } = useWallet();
-  const { getMyInvoices, loading } = useEcommerce(provider, address);
+  const { provider, address, isConnected } = useWallet();
+  const { getMyInvoices, loading, isReady } = useEcommerce(provider, address);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (address) {
+    if (isConnected && address && isReady) {
       loadInvoices();
+    } else if (!isConnected || !address) {
+      setLoadingInvoices(false);
+      setInvoices([]);
     }
-  }, [address]);
+  }, [isConnected, address, isReady]);
 
   const loadInvoices = async () => {
+    if (!isConnected || !address || !isReady) {
+      setLoadingInvoices(false);
+      return;
+    }
+
     setLoadingInvoices(true);
+    setError(null);
     try {
       const allInvoices = await getMyInvoices();
       // Ordenar por timestamp descendente (más recientes primero)
@@ -33,6 +42,7 @@ export default function OrdersPage() {
       });
       setInvoices(allInvoices);
     } catch (err: any) {
+      console.error('Error loading invoices:', err);
       setError(err.message || 'Error al cargar facturas');
     } finally {
       setLoadingInvoices(false);
@@ -50,12 +60,12 @@ export default function OrdersPage() {
     });
   };
 
-  if (!address) {
+  if (!isConnected || !address) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/30">
         <Header />
-        <main className="container mx-auto px-4 py-8">
-          <div className="max-w-2xl mx-auto text-center py-12">
+        <main className="container mx-auto px-4 lg:px-8 py-8">
+          <div className="max-w-2xl mx-auto text-center bg-white rounded-2xl shadow-xl p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
               Mis Pedidos
             </h2>
@@ -64,9 +74,12 @@ export default function OrdersPage() {
             </p>
             <Link
               href="/"
-              className="inline-block px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg shadow-indigo-500/50 hover:shadow-xl transition-all transform hover:scale-105"
             >
-              Ver Productos
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Explorar Productos
             </Link>
           </div>
         </main>
