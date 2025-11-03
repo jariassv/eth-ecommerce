@@ -60,7 +60,7 @@ Sistema completo de e-commerce descentralizado integrando blockchain, stablecoin
 - MetaMask (extensión del navegador)
 - Cuenta de Stripe (para pruebas)
 
-## 🔧 Instalación
+## 🔧 Instalación Rápida
 
 ### 1. Instalar Foundry
 
@@ -74,32 +74,59 @@ anvil --version
 cast --version
 ```
 
-### 2. Clonar y configurar
+### 2. Clonar y Deploy
 
 ```bash
 git clone <repo-url>
 cd 03-ECOMMERCE
 
-# Configurar variables de entorno en cada app (ver .env.example)
-# Configurar Stripe keys
-# Configurar IPFS keys
-```
-
-### 3. Deploy completo
-
-```bash
+# Dar permisos al script
 chmod +x restart-all.sh
+
+# Deploy completo (automatizado)
 ./restart-all.sh
 ```
 
-Este script:
-1. Detiene aplicaciones anteriores
-2. Inicia Anvil (blockchain local)
-3. Deploy USDToken
-4. Deploy EURToken
-5. Deploy Ecommerce
-6. Actualiza variables de entorno
-7. Inicia todas las aplicaciones
+El script `restart-all.sh` automatiza todo:
+1. ✅ Detiene aplicaciones anteriores
+2. ✅ Inicia Anvil (blockchain local en puerto 8545)
+3. ✅ Deploy USDToken y EURToken
+4. ✅ Deploy contrato Ecommerce
+5. ✅ Configura variables de entorno automáticamente
+6. ✅ Instala dependencias de todas las apps
+7. ✅ Inicia todas las aplicaciones Next.js
+
+### 3. Configurar MetaMask
+
+1. Instalar MetaMask desde [metamask.io](https://metamask.io)
+2. Configurar red local:
+   - **Network Name**: Localhost 8545
+   - **RPC URL**: http://localhost:8545
+   - **Chain ID**: 31337
+   - **Currency Symbol**: ETH
+3. Importar cuenta de Anvil (usar private key del script)
+
+### 4. Configuración Opcional
+
+#### Stripe (para compra de tokens)
+
+Edita `stablecoin/compra-stableboin/.env.local`:
+```bash
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+#### IPFS/Pinata (para imágenes de productos)
+
+Edita `web-admin/.env.local`:
+```bash
+NEXT_PUBLIC_PINATA_JWT=tu_jwt_token_aqui
+```
+
+Obtén tu JWT en [pinata.cloud](https://pinata.cloud)
+
+📖 **Para más detalles, consulta [DEPLOYMENT.md](./DEPLOYMENT.md)**
 
 ## 🎯 Puertos
 
@@ -134,12 +161,20 @@ npm test
 
 ## 📚 Documentación
 
-Ver [PROYECTO_ESTUDIANTE.md](./PROYECTO_ESTUDIANTE.md) para documentación completa del proyecto:
-- Plan de trabajo por etapas
-- Guías de diseño UI/UX
-- Arquitectura de contratos
-- Solución de problemas
-- Buenas prácticas
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)**: Guía completa de deployment y configuración
+- **[PROYECTO_ESTUDIANTE.md](./PROYECTO_ESTUDIANTE.md)**: Documentación técnica del proyecto
+  - Plan de trabajo por etapas
+  - Guías de diseño UI/UX
+  - Arquitectura de contratos
+  - Solución de problemas
+  - Buenas prácticas
+
+### Documentación por Componente
+
+- [Web Admin README](./web-admin/README.md): Panel de administración
+- [Web Customer README](./web-customer/README.md): Tienda online
+- [Pasarela de Pago README](./stablecoin/pasarela-de-pago/README.md): Sistema de pagos
+- [Compra Stablecoin README](./stablecoin/compra-stableboin/README.md): Compra de tokens
 
 ## 🔒 Seguridad
 
@@ -148,15 +183,45 @@ Ver [PROYECTO_ESTUDIANTE.md](./PROYECTO_ESTUDIANTE.md) para documentación compl
 - Validaciones exhaustivas
 - OpenZeppelin para contratos base
 
+## 🎯 Flujo de Trabajo Completo
+
+1. **Compra de Tokens** → http://localhost:6001
+   - Compra USDT/EURT con tarjeta de crédito vía Stripe
+
+2. **Registro de Empresa** → http://localhost:6003
+   - El owner del contrato registra empresas
+   - Cada empresa puede gestionar sus productos
+
+3. **Crear Productos** → http://localhost:6003
+   - Agregar productos con imágenes (IPFS)
+   - Gestionar stock y precios
+
+4. **Comprar Productos** → http://localhost:6004
+   - Navegar catálogo
+   - Agregar al carrito
+   - Crear factura
+
+5. **Procesar Pago** → http://localhost:6002
+   - Aprobar tokens
+   - Completar pago
+   - Verificar transacción
+
+6. **Analytics y Reviews** → http://localhost:6003
+   - Ver métricas de ventas
+   - Gestionar reviews de productos
+
 ## 📝 Licencia
 
-[Tu licencia aquí]
+Este proyecto es parte de un curso educativo sobre desarrollo blockchain.
 
-## 👥 Contribuidores
+## 👥 Autor
 
-[Tu nombre/información]
+Desarrollado como proyecto educativo de e-commerce blockchain.
 
-## 📧 Contacto
+## 📧 Soporte
 
-[Tu contacto]
+Para problemas o preguntas, revisa:
+- [DEPLOYMENT.md](./DEPLOYMENT.md) para problemas de deployment
+- [PROYECTO_ESTUDIANTE.md](./PROYECTO_ESTUDIANTE.md) para documentación técnica
+- Issues en el repositorio para reportar bugs
 
