@@ -292,6 +292,29 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     }
   }, [contract]);
 
+  // Empresas
+  const getCompany = useCallback(async (companyId: bigint) => {
+    if (!contract) throw new Error('Contrato no inicializado');
+    
+    setLoading(true);
+    setError(null);
+    try {
+      const company = await contract.getCompany(companyId);
+      return {
+        companyId: BigInt(company.companyId.toString()),
+        name: company.name,
+        companyAddress: company.companyAddress,
+        taxId: company.taxId,
+        isActive: company.isActive,
+      };
+    } catch (err: any) {
+      setError(err.message || 'Error al obtener empresa');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [contract]);
+
   return {
     contract,
     contractWithSigner,
@@ -310,6 +333,8 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     getMyInvoices,
     getInvoice,
     getInvoiceItems,
+    // Empresas
+    getCompany,
   };
 }
 
