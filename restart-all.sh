@@ -216,6 +216,37 @@ rm -f "${CUSTOMER_ENV_FILE}.bak" 2>/dev/null || true
 
 print_success "Variables de entorno actualizadas en $CUSTOMER_ENV_FILE"
 
+# 6d. Configurar .env.local para web-admin
+print_info "Configurando .env.local para web-admin..."
+ADMIN_ENV_FILE="web-admin/.env.local"
+
+# Crear .env.local si no existe
+if [ ! -f "$ADMIN_ENV_FILE" ]; then
+    cat > "$ADMIN_ENV_FILE" << EOF
+# Blockchain Configuration
+NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=
+NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=
+NEXT_PUBLIC_RPC_URL=http://localhost:8545
+NEXT_PUBLIC_CHAIN_ID=31337
+
+# Application Configuration
+NEXT_PUBLIC_APP_URL=http://localhost:6003
+
+# IPFS Configuration (Pinata)
+# NEXT_PUBLIC_PINATA_JWT=your_pinata_jwt_here
+EOF
+    print_info "Creado $ADMIN_ENV_FILE básico"
+fi
+
+# Actualizar valores en .env.local de web-admin
+print_info "Actualizando direcciones de contratos en .env.local de web-admin..."
+sed -i.bak "s|NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=$ECOMMERCE_ADDRESS|g" "$ADMIN_ENV_FILE"
+sed -i.bak "s|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=$USD_TOKEN_ADDRESS|g" "$ADMIN_ENV_FILE"
+rm -f "${ADMIN_ENV_FILE}.bak" 2>/dev/null || true
+
+print_success "Variables de entorno actualizadas en $ADMIN_ENV_FILE"
+print_info "⚠️  OPCIONAL: Configura NEXT_PUBLIC_PINATA_JWT para subir imágenes a IPFS"
+
 # 7. Resumen de direcciones
 echo ""
 print_info "📋 Resumen de direcciones desplegadas:"
@@ -277,15 +308,33 @@ if [[ $REPLY =~ ^[Ss]$ ]]; then
     
     sleep 3
     
+    # Iniciar web-admin
+    print_info "Iniciando web-admin (panel de administración)..."
+    cd web-admin
+    
+    if [ ! -d "node_modules" ]; then
+        print_info "Instalando dependencias..."
+        npm install
+    fi
+    
+    npm run dev &
+    ADMIN_PID=$!
+    echo $ADMIN_PID > /tmp/next-admin.pid
+    cd ..
+    
+    sleep 3
+    
     print_success "Aplicaciones iniciadas:"
     print_info "  - Compra Stablecoin: http://localhost:3000"
     print_info "  - Pasarela de Pagos: http://localhost:6002"
     print_info "  - Web Customer (Tienda): http://localhost:6004"
+    print_info "  - Web Admin (Panel): http://localhost:6003"
 else
     print_info "Para iniciar las aplicaciones manualmente:"
     echo "  cd stablecoin/compra-stableboin && npm run dev"
     echo "  cd stablecoin/pasarela-de-pago && npm run dev"
     echo "  cd web-customer && npm run dev"
+    echo "  cd web-admin && npm run dev"
 fi
 
 print_success "Deploy completo finalizado!"
@@ -310,6 +359,11 @@ cleanup() {
         CUSTOMER_PID=$(cat /tmp/next-customer.pid)
         kill $CUSTOMER_PID 2>/dev/null || true
         rm -f /tmp/next-customer.pid
+    fi
+    if [ -f /tmp/next-admin.pid ]; then
+        ADMIN_PID=$(cat /tmp/next-admin.pid)
+        kill $ADMIN_PID 2>/dev/null || true
+        rm -f /tmp/next-admin.pid
     fi
     print_success "Procesos detenidos"
     exit 0
