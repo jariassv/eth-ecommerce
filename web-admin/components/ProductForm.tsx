@@ -61,11 +61,7 @@ export default function ProductForm({ companyId, product, onClose, onSuccess }: 
       return;
     }
 
-    if (!product && !imageFile) {
-      setError('Debes subir una imagen principal para el producto');
-      return;
-    }
-
+    // La imagen es opcional, pero si se intenta subir, debe haber IPFS configurado
     setProcessing(true);
 
     try {
@@ -74,13 +70,32 @@ export default function ProductForm({ companyId, product, onClose, onSuccess }: 
 
       // Subir imagen principal si es nueva
       if (imageFile) {
-        ipfsImageHash = await uploadToIPFS(imageFile);
+        try {
+          ipfsImageHash = await uploadToIPFS(imageFile);
+        } catch (ipfsErr: any) {
+          // Si falla IPFS pero es un error de configuración, permitir continuar sin imagen
+          if (ipfsErr.message?.includes('PINATA_JWT no configurado')) {
+            setError('Para subir imágenes, debes configurar NEXT_PUBLIC_PINATA_JWT en .env.local. Puedes crear el producto sin imagen por ahora.');
+            setProcessing(false);
+            return;
+          }
+          throw ipfsErr; // Re-lanzar otros errores de IPFS
+        }
       }
 
       // Subir imágenes adicionales si hay
       if (additionalImages.length > 0) {
-        const uploadPromises = additionalImages.map(file => uploadToIPFS(file));
-        additionalHashes = await Promise.all(uploadPromises);
+        try {
+          const uploadPromises = additionalImages.map(file => uploadToIPFS(file));
+          additionalHashes = await Promise.all(uploadPromises);
+        } catch (ipfsErr: any) {
+          if (ipfsErr.message?.includes('PINATA_JWT no configurado')) {
+            setError('Para subir imágenes, debes configurar NEXT_PUBLIC_PINATA_JWT en .env.local. Puedes crear el producto sin imágenes adicionales por ahora.');
+            setProcessing(false);
+            return;
+          }
+          throw ipfsErr;
+        }
       }
 
       const priceInWei = parseTokenAmount(price, 6);
@@ -211,8 +226,15 @@ export default function ProductForm({ companyId, product, onClose, onSuccess }: 
 
             <div className="md:col-span-2">
               <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-2">
-                Imagen Principal {!product && '*'}
+                Imagen Principal <span className="text-gray-500">(opcional)</span>
               </label>
+              {!process.env.NEXT_PUBLIC_PINATA_JWT && (
+                <div className="mb-2 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                  <p className="font-semibold mb-1">⚠️ IPFS no configurado</p>
+                  <p>Para subir imágenes, configura <code className="bg-yellow-100 px-1 rounded">NEXT_PUBLIC_PINATA_JWT</code> en tu archivo <code className="bg-yellow-100 px-1 rounded">.env.local</code></p>
+                  <p className="mt-1 text-xs">Puedes crear productos sin imagen por ahora. Obtén un JWT en <a href="https://app.pinata.cloud/" target="_blank" rel="noopener noreferrer" className="underline">Pinata</a></p>
+                </div>
+              )}
               {imagePreview && (
                 <div className="mb-4">
                   <img

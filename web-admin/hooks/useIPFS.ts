@@ -24,7 +24,7 @@ export function useIPFS() {
       const pinataJWT = process.env.NEXT_PUBLIC_PINATA_JWT;
       
       if (!pinataJWT) {
-        throw new Error('PINATA_JWT no configurado. Por favor, configura las variables de entorno.');
+        throw new Error('PINATA_JWT no configurado. Por favor, configura NEXT_PUBLIC_PINATA_JWT en tu archivo .env.local. Puedes obtener un JWT en https://app.pinata.cloud/');
       }
 
       // Crear FormData
