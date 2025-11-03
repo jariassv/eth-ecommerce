@@ -262,12 +262,19 @@ export default function PaymentProcessor({
         )}
 
         {step === 'approve' && !hasInsufficientBalance && (
-          <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded">
-            <p className="text-sm">
-              Necesitas aprobar el gasto de tokens antes de proceder con el pago.
+          <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded">
+            <p className="text-sm font-semibold mb-2">
+              ⚠️ Aprobación de Tokens Requerida
             </p>
-            <p className="text-xs mt-1">
-              Aprobación actual: {allowance} USDT
+            <p className="text-sm mb-2">
+              Para realizar el pago, primero necesitas autorizar al contrato Ecommerce a gastar tus tokens USDT. 
+              Esto es un paso de seguridad estándar en blockchain.
+            </p>
+            <p className="text-xs text-blue-600 mt-2">
+              Aprobación actual: {allowance} USDT | Necesario: ${amount.toFixed(2)} USDT
+            </p>
+            <p className="text-xs text-blue-600 mt-1 italic">
+              Nota: Solo necesitas aprobar una vez. Las próximas compras serán más rápidas.
             </p>
           </div>
         )}
