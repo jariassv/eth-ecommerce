@@ -93,17 +93,19 @@ contract Ecommerce is Ownable {
     // ============ EMPRESAS ============
 
     /**
-     * @dev Registrar una nueva empresa
+     * @dev Registrar una nueva empresa (solo owner del contrato)
+     * @param companyAddress Dirección de la empresa a registrar
      * @param name Nombre de la empresa
      * @param taxId ID fiscal de la empresa
      * @return companyId ID de la empresa creada
      */
     function registerCompany(
+        address companyAddress,
         string memory name,
         string memory taxId
-    ) external returns (uint256) {
-        uint256 companyId = companyStorage.registerCompany(msg.sender, name, taxId);
-        emit CompanyRegistered(companyId, msg.sender, name);
+    ) external onlyOwner returns (uint256) {
+        uint256 companyId = companyStorage.registerCompany(companyAddress, name, taxId);
+        emit CompanyRegistered(companyId, companyAddress, name);
         return companyId;
     }
 
@@ -336,20 +338,20 @@ contract Ecommerce is Ownable {
     function updateCartItem(uint256 productId, uint256 quantity) external {
         if (quantity == 0) {
             // Llamar a removeFromCart directamente
-            uint256 itemCount = cartItemCounts[msg.sender];
-            for (uint256 i = 0; i < itemCount; i++) {
+            uint256 cartItemCount = cartItemCounts[msg.sender];
+            for (uint256 i = 0; i < cartItemCount; i++) {
                 bytes32 key = keccak256(abi.encodePacked(msg.sender, i));
                 if (cartItems[key].productId == productId) {
                     // Mover el último elemento a la posición actual
-                    if (i < itemCount - 1) {
-                        bytes32 lastKey = keccak256(abi.encodePacked(msg.sender, itemCount - 1));
+                    if (i < cartItemCount - 1) {
+                        bytes32 lastKey = keccak256(abi.encodePacked(msg.sender, cartItemCount - 1));
                         cartItems[key] = cartItems[lastKey];
                         delete cartItems[lastKey];
                     } else {
                         delete cartItems[key];
                     }
                     unchecked {
-                        cartItemCounts[msg.sender] = itemCount - 1;
+                        cartItemCounts[msg.sender] = cartItemCount - 1;
                     }
                     return;
                 }
