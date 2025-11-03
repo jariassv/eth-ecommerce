@@ -155,6 +155,39 @@ print_info "   - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"
 print_info "   - STRIPE_SECRET_KEY"
 print_info "   - STRIPE_WEBHOOK_SECRET"
 
+# 6b. Configurar .env.local para pasarela-de-pago
+print_info "Configurando .env.local para pasarela-de-pago..."
+PASARELA_ENV_FILE="stablecoin/pasarela-de-pago/.env.local"
+PASARELA_ENV_EXAMPLE="stablecoin/pasarela-de-pago/.env.local.example"
+
+# Crear .env.local si no existe
+if [ ! -f "$PASARELA_ENV_FILE" ]; then
+    if [ -f "$PASARELA_ENV_EXAMPLE" ]; then
+        cp "$PASARELA_ENV_EXAMPLE" "$PASARELA_ENV_FILE"
+        print_info "Creado $PASARELA_ENV_FILE desde .env.local.example"
+    else
+        cat > "$PASARELA_ENV_FILE" << EOF
+# Blockchain Configuration
+NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=
+NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=
+NEXT_PUBLIC_RPC_URL=http://localhost:8545
+NEXT_PUBLIC_CHAIN_ID=31337
+
+# Application Configuration
+NEXT_PUBLIC_APP_URL=http://localhost:6002
+EOF
+        print_info "Creado $PASARELA_ENV_FILE básico"
+    fi
+fi
+
+# Actualizar valores en .env.local de pasarela
+print_info "Actualizando direcciones de contratos en .env.local de pasarela..."
+sed -i.bak "s|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=$USD_TOKEN_ADDRESS|g" "$PASARELA_ENV_FILE"
+sed -i.bak "s|NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=$ECOMMERCE_ADDRESS|g" "$PASARELA_ENV_FILE"
+rm -f "${PASARELA_ENV_FILE}.bak" 2>/dev/null || true
+
+print_success "Variables de entorno actualizadas en $PASARELA_ENV_FILE"
+
 # 7. Resumen de direcciones
 echo ""
 print_info "📋 Resumen de direcciones desplegadas:"
@@ -165,33 +198,48 @@ echo "   OWNER_PRIVATE_KEY=$OWNER_PRIVATE_KEY"
 echo ""
 
 # 8. Iniciar aplicaciones Next.js (opcional)
-read -p "¿Deseas iniciar la aplicación de compra de tokens? (s/n) " -n 1 -r
+read -p "¿Deseas iniciar las aplicaciones Next.js? (s/n) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Ss]$ ]]; then
+    # Iniciar compra-stableboin
     print_info "Iniciando aplicación de compra de tokens..."
     cd stablecoin/compra-stableboin
     
-    # Verificar que node_modules existe
     if [ ! -d "node_modules" ]; then
         print_info "Instalando dependencias..."
         npm install
     fi
     
-    print_success "Aplicación disponible en: http://localhost:3000"
-    print_info "Presiona Ctrl+C para detener la aplicación"
     npm run dev &
-    NEXT_PID=$!
-    echo $NEXT_PID > /tmp/next-compra-stablecoin.pid
+    COMPRA_PID=$!
+    echo $COMPRA_PID > /tmp/next-compra-stablecoin.pid
     cd ../..
     
-    # Esperar un poco para que la app inicie
-    sleep 5
+    sleep 3
+    
+    # Iniciar pasarela-de-pago
+    print_info "Iniciando pasarela de pagos..."
+    cd stablecoin/pasarela-de-pago
+    
+    if [ ! -d "node_modules" ]; then
+        print_info "Instalando dependencias..."
+        npm install
+    fi
+    
+    npm run dev &
+    PASARELA_PID=$!
+    echo $PASARELA_PID > /tmp/next-pasarela.pid
+    cd ../..
+    
+    sleep 3
     
     print_success "Aplicaciones iniciadas:"
     print_info "  - Compra Stablecoin: http://localhost:3000"
+    print_info "  - Pasarela de Pagos: http://localhost:6002"
 else
     print_info "Para iniciar las aplicaciones manualmente:"
     echo "  cd stablecoin/compra-stableboin && npm run dev"
+    echo "  cd stablecoin/pasarela-de-pago && npm run dev"
 fi
 
 print_success "Deploy completo finalizado!"
@@ -203,9 +251,14 @@ cleanup() {
     print_info "Deteniendo procesos..."
     kill $ANVIL_PID 2>/dev/null || true
     if [ -f /tmp/next-compra-stablecoin.pid ]; then
-        NEXT_PID=$(cat /tmp/next-compra-stablecoin.pid)
-        kill $NEXT_PID 2>/dev/null || true
+        COMPRA_PID=$(cat /tmp/next-compra-stablecoin.pid)
+        kill $COMPRA_PID 2>/dev/null || true
         rm -f /tmp/next-compra-stablecoin.pid
+    fi
+    if [ -f /tmp/next-pasarela.pid ]; then
+        PASARELA_PID=$(cat /tmp/next-pasarela.pid)
+        kill $PASARELA_PID 2>/dev/null || true
+        rm -f /tmp/next-pasarela.pid
     fi
     print_success "Procesos detenidos"
     exit 0
