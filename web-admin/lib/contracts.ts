@@ -3,7 +3,8 @@ import { ethers } from 'ethers';
 // ABI completo del contrato Ecommerce (incluye funciones de admin)
 export const ECOMMERCE_ABI = [
   // Empresas
-  'function registerCompany(string memory name, string memory taxId) external returns (uint256)',
+  'function registerCompany(address companyAddress, string memory name, string memory taxId) external returns (uint256)',
+  'function owner() external view returns (address)',
   'function getCompany(uint256 companyId) external view returns (tuple(uint256 companyId, string name, address companyAddress, string taxId, bool isActive))',
   'function getCompanyIdByAddress(address companyAddress) external view returns (uint256)',
   'function getCompanyCount() external view returns (uint256)',

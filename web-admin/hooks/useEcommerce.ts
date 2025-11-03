@@ -74,15 +74,44 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
 
   // ============ EMPRESAS ============
 
-  const registerCompany = useCallback(async (name: string, taxId: string): Promise<bigint> => {
+  const getOwner = useCallback(async (): Promise<string> => {
+    if (!contract) throw new Error('Contrato no inicializado');
+    
+    try {
+      const owner = await contract.owner();
+      return owner;
+    } catch (err: any) {
+      setError(err.message || 'Error al obtener owner');
+      throw err;
+    }
+  }, [contract]);
+
+  const registerCompany = useCallback(async (companyAddress: string, name: string, taxId: string): Promise<bigint> => {
     if (!contractWithSigner) throw new Error('Contrato no inicializado o wallet no conectada');
     
     setLoading(true);
     setError(null);
     try {
-      const tx = await contractWithSigner.registerCompany(name, taxId);
-      await tx.wait();
-      const companyId = await contract.getCompanyIdByAddress(address!);
+      const tx = await contractWithSigner.registerCompany(companyAddress, name, taxId);
+      const receipt = await tx.wait();
+      
+      // Buscar el evento CompanyRegistered para obtener el companyId
+      const event = receipt.logs.find((log: any) => {
+        try {
+          const parsedLog = contract.interface.parseLog(log);
+          return parsedLog && parsedLog.name === 'CompanyRegistered';
+        } catch {
+          return false;
+        }
+      });
+      
+      if (event) {
+        const parsedLog = contract.interface.parseLog(event);
+        return BigInt(parsedLog!.args[0].toString());
+      }
+      
+      // Fallback: buscar por address
+      const companyId = await contract.getCompanyIdByAddress(companyAddress);
       return BigInt(companyId.toString());
     } catch (err: any) {
       setError(err.message || 'Error al registrar empresa');
@@ -90,7 +119,7 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     } finally {
       setLoading(false);
     }
-  }, [contractWithSigner, contract, address]);
+  }, [contractWithSigner, contract]);
 
   const getCompany = useCallback(async (companyId: bigint): Promise<Company> => {
     if (!contract) throw new Error('Contrato no inicializado');
@@ -329,6 +358,7 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     isReady: !!contract && !isInitializing,
     isInitializing,
     // Empresas
+    getOwner,
     registerCompany,
     getCompany,
     getCompanyIdByAddress,

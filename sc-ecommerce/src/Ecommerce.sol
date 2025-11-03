@@ -93,17 +93,19 @@ contract Ecommerce is Ownable {
     // ============ EMPRESAS ============
 
     /**
-     * @dev Registrar una nueva empresa
+     * @dev Registrar una nueva empresa (solo owner del contrato)
+     * @param companyAddress Dirección de la empresa a registrar
      * @param name Nombre de la empresa
      * @param taxId ID fiscal de la empresa
      * @return companyId ID de la empresa creada
      */
     function registerCompany(
+        address companyAddress,
         string memory name,
         string memory taxId
-    ) external returns (uint256) {
-        uint256 companyId = companyStorage.registerCompany(msg.sender, name, taxId);
-        emit CompanyRegistered(companyId, msg.sender, name);
+    ) external onlyOwner returns (uint256) {
+        uint256 companyId = companyStorage.registerCompany(companyAddress, name, taxId);
+        emit CompanyRegistered(companyId, companyAddress, name);
         return companyId;
     }
 
