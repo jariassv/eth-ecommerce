@@ -12,7 +12,7 @@ const USD_TOKEN_ADDRESS = typeof window !== 'undefined'
 
 export default function Header() {
   const { provider, address, isConnected, connect, disconnect } = useWallet();
-  const { getCart } = useEcommerce(provider, address);
+  const { getCart, isReady } = useEcommerce(provider, address);
   const [balance, setBalance] = useState<string>('0.00');
   const [cartCount, setCartCount] = useState<number>(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -24,12 +24,14 @@ export default function Header() {
   }, [isConnected, address]);
 
   useEffect(() => {
-    if (isConnected && address) {
+    if (isConnected && address && isReady) {
       loadCartCount();
       const interval = setInterval(loadCartCount, 3000);
       return () => clearInterval(interval);
+    } else {
+      setCartCount(0);
     }
-  }, [isConnected, address]);
+  }, [isConnected, address, isReady]);
 
   const loadBalance = async () => {
     try {
@@ -63,7 +65,7 @@ export default function Header() {
       const total = cart.reduce((sum, item) => sum + Number(item.quantity), 0);
       setCartCount(total);
     } catch (err) {
-      // Ignorar errores si no hay items
+      // Ignorar errores si no hay items o contrato no está listo
       setCartCount(0);
     }
   };
