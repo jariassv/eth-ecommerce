@@ -46,7 +46,22 @@ export async function getTokenBalance(
   // Usar JsonRpcProvider directo en lugar de BrowserProvider para evitar cache
   // El BrowserProvider de MetaMask puede cachear datos, causando que el balance no se actualice
   const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545';
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  
+  if (!rpcUrl) {
+    throw new Error('NEXT_PUBLIC_RPC_URL no está configurada');
+  }
+
+  console.log(`🌐 Conectando a RPC: ${rpcUrl}`);
+  
+  // Configurar opciones del provider para evitar problemas de CORS y network
+  const provider = new ethers.JsonRpcProvider(
+    rpcUrl,
+    undefined,
+    {
+      staticNetwork: false, // Permitir que detecte la red automáticamente
+      batchMaxCount: 1, // No usar batching para evitar problemas
+    }
+  );
 
   // ABI mínimo para balanceOf
   const abi = ['function balanceOf(address) view returns (uint256)'];
@@ -55,10 +70,22 @@ export async function getTokenBalance(
   // Siempre usar blockTag 'latest' para obtener el balance más reciente
   // Esto evita cualquier problema de cache
   try {
+    // Verificar que el provider esté disponible antes de hacer la llamada
+    await provider.getBlockNumber().catch((err) => {
+      console.error('❌ Error conectando a RPC:', err);
+      throw new Error(`No se puede conectar a la RPC en ${rpcUrl}. ¿Está Anvil corriendo?`);
+    });
+
     const balance = await contract.balanceOf(userAddress, { blockTag: 'latest' });
     return ethers.formatUnits(balance, 6); // USDToken tiene 6 decimales
   } catch (error) {
-    console.error('Error al obtener balance:', error);
+    console.error('❌ Error al obtener balance:', error);
+    if (error instanceof Error) {
+      // Si es un error de red, proporcionar un mensaje más útil
+      if (error.message.includes('fetch') || error.message.includes('Network')) {
+        throw new Error(`Error de red al conectar a ${rpcUrl}. Verifica que Anvil esté corriendo en el puerto 8545.`);
+      }
+    }
     throw error;
   }
 }

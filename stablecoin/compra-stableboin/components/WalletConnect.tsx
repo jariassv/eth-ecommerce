@@ -87,8 +87,11 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
       
       console.log(`💰 Balance obtenido directamente de blockchain: ${tokenBalance} USDT`);
       setBalance(formatTokenAmount(tokenBalance));
+      setError(null); // Limpiar errores previos si funciona
     } catch (err) {
       console.error('❌ Error loading balance:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      setError(`Error al cargar balance: ${errorMessage}`);
       setBalance('0.00');
     }
   };
@@ -157,6 +160,13 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <h2 className="text-xl font-semibold mb-4 text-gray-800">Wallet Conectada</h2>
+      
+      {error && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded mb-4">
+          <p className="text-sm">{error}</p>
+          <p className="text-xs mt-1">Verifica que Anvil esté corriendo en http://localhost:8545</p>
+        </div>
+      )}
       
       <div className="space-y-3 mb-4">
         <div>
