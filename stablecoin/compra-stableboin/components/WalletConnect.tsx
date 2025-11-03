@@ -16,8 +16,14 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const usdTokenAddress = process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS || '';
-  const eurTokenAddress = process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '';
+  // Obtener direcciones de contratos desde variables de entorno
+  // Usar useMemo para evitar recrear en cada render
+  const usdTokenAddress = typeof window !== 'undefined' 
+    ? (process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS || '')
+    : '';
+  const eurTokenAddress = typeof window !== 'undefined'
+    ? (process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '')
+    : '';
 
   useEffect(() => {
     // Verificar si hay una cuenta conectada
@@ -83,31 +89,50 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
 
     try {
       console.log(`🔄 Refrescando balances para: ${address}`);
+      console.log(`   USDT Contract: ${usdTokenAddress || 'NO CONFIGURADO'}`);
+      console.log(`   EURT Contract: ${eurTokenAddress || 'NO CONFIGURADO'}`);
       setError(null);
+      
+      // Cargar ambos balances en paralelo para mejor rendimiento
+      const balancePromises: Promise<void>[] = [];
       
       // Cargar balance de USDT
       if (usdTokenAddress) {
-        try {
-          const usdtBalanceValue = await getTokenBalance(usdTokenAddress, address, forceRefresh);
-          console.log(`💰 Balance USDT: ${usdtBalanceValue}`);
-          setUsdtBalance(formatTokenAmount(usdtBalanceValue));
-        } catch (err) {
-          console.error('Error cargando balance USDT:', err);
-          setUsdtBalance('0.00');
-        }
+        balancePromises.push(
+          getTokenBalance(usdTokenAddress, address, forceRefresh)
+            .then((usdtBalanceValue) => {
+              console.log(`💰 Balance USDT obtenido: ${usdtBalanceValue}`);
+              setUsdtBalance(formatTokenAmount(usdtBalanceValue));
+            })
+            .catch((err) => {
+              console.error('❌ Error cargando balance USDT:', err);
+              setUsdtBalance('0.00');
+            })
+        );
+      } else {
+        console.warn('⚠️ USDToken contract address no configurado');
       }
       
       // Cargar balance de EURT
       if (eurTokenAddress) {
-        try {
-          const eurtBalanceValue = await getTokenBalance(eurTokenAddress, address, forceRefresh);
-          console.log(`💰 Balance EURT: ${eurtBalanceValue}`);
-          setEurtBalance(formatTokenAmount(eurtBalanceValue));
-        } catch (err) {
-          console.error('Error cargando balance EURT:', err);
-          setEurtBalance('0.00');
-        }
+        balancePromises.push(
+          getTokenBalance(eurTokenAddress, address, forceRefresh)
+            .then((eurtBalanceValue) => {
+              console.log(`💰 Balance EURT obtenido: ${eurtBalanceValue}`);
+              setEurtBalance(formatTokenAmount(eurtBalanceValue));
+            })
+            .catch((err) => {
+              console.error('❌ Error cargando balance EURT:', err);
+              setEurtBalance('0.00');
+            })
+        );
+      } else {
+        console.warn('⚠️ EURToken contract address no configurado');
       }
+      
+      // Esperar a que ambos balances se carguen
+      await Promise.all(balancePromises);
+      console.log('✅ Balances actualizados');
     } catch (err) {
       console.error('❌ Error loading balances:', err);
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
@@ -196,25 +221,36 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
           </p>
         </div>
         
-        <div className="space-y-3">
-          {usdTokenAddress && (
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Balance USDT:</p>
-              <p className="text-xl font-bold text-indigo-600">
-                {usdtBalance} USDT
-              </p>
+        <div className="space-y-4">
+          <div className="border-b border-gray-200 pb-3">
+            <p className="text-xs text-gray-500 mb-2">Balances de Tokens</p>
+            <div className="space-y-2">
+              {usdTokenAddress ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">USDT:</span>
+                  <span className="text-lg font-bold text-indigo-600">
+                    {usdtBalance} USDT
+                  </span>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 italic">USDT no configurado</p>
+              )}
+              {eurTokenAddress ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">EURT:</span>
+                  <span className="text-lg font-bold text-indigo-600">
+                    {eurtBalance} EURT
+                  </span>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 italic">EURT no configurado</p>
+              )}
             </div>
-          )}
-          {eurTokenAddress && (
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Balance EURT:</p>
-              <p className="text-xl font-bold text-indigo-600">
-                {eurtBalance} EURT
-              </p>
-            </div>
-          )}
+          </div>
           {!usdTokenAddress && !eurTokenAddress && (
-            <p className="text-sm text-gray-500">No hay contratos configurados</p>
+            <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
+              ⚠️ No hay contratos configurados. Verifica las variables de entorno.
+            </p>
           )}
         </div>
       </div>
