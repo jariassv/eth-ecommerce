@@ -163,6 +163,7 @@ npm test
 
 - **[DEPLOYMENT.md](./DEPLOYMENT.md)**: Guía completa de deployment y configuración
 - **[VARIABLES_ENTORNO.md](./VARIABLES_ENTORNO.md)**: Guía de variables de entorno
+- **[TESTING_CHECKLIST.md](./TESTING_CHECKLIST.md)**: Checklist completo de testing E2E
 - **[PROYECTO_ESTUDIANTE.md](./PROYECTO_ESTUDIANTE.md)**: Documentación técnica del proyecto
   - Plan de trabajo por etapas
   - Guías de diseño UI/UX
