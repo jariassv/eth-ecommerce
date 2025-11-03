@@ -162,6 +162,7 @@ npm test
 ## 📚 Documentación
 
 - **[DEPLOYMENT.md](./DEPLOYMENT.md)**: Guía completa de deployment y configuración
+- **[VARIABLES_ENTORNO.md](./VARIABLES_ENTORNO.md)**: Guía de variables de entorno
 - **[PROYECTO_ESTUDIANTE.md](./PROYECTO_ESTUDIANTE.md)**: Documentación técnica del proyecto
   - Plan de trabajo por etapas
   - Guías de diseño UI/UX
