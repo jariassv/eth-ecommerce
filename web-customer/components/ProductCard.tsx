@@ -6,6 +6,7 @@ import { useEcommerce } from '@/hooks/useEcommerce';
 import { useWallet } from '@/hooks/useWallet';
 import { getIPFSImageUrl, getNextIPFSGateway } from '@/lib/ipfs';
 import { useState } from 'react';
+import ProductDetailModal from './ProductDetailModal';
 
 interface ProductCardProps {
   product: Product;
@@ -19,6 +20,7 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
   const [adding, setAdding] = useState(false);
   const [currentGatewayIndex, setCurrentGatewayIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   const price = formatTokenAmount(product.price, 6);
   const hasStock = product.stock > 0n;
@@ -79,22 +81,23 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
   };
 
   return (
-    <div className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-indigo-200 flex flex-col">
-      {/* Imagen con overlay en hover */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
-        <img
-          key={`${product.productId}-${currentGatewayIndex}`}
-          src={imageUrl}
-          alt={product.name}
-          className="w-full h-56 object-cover group-hover:scale-110 transition-transform duration-500"
-          onError={handleImageError}
-          onLoad={() => {
-            if (product.ipfsImageHash && currentGatewayIndex > 0) {
-              console.log(`Imagen IPFS cargada correctamente con gateway ${currentGatewayIndex}:`, product.ipfsImageHash);
-            }
-            setImageError(false);
-          }}
-        />
+    <>
+      <div className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-indigo-200 flex flex-col cursor-pointer" onClick={() => setShowDetailModal(true)}>
+        {/* Imagen con overlay en hover */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
+          <img
+            key={`${product.productId}-${currentGatewayIndex}`}
+            src={imageUrl}
+            alt={product.name}
+            className="w-full h-56 object-cover group-hover:scale-110 transition-transform duration-500"
+            onError={handleImageError}
+            onLoad={() => {
+              if (product.ipfsImageHash && currentGatewayIndex > 0) {
+                console.log(`Imagen IPFS cargada correctamente con gateway ${currentGatewayIndex}:`, product.ipfsImageHash);
+              }
+              setImageError(false);
+            }}
+          />
         {/* Badge de stock */}
         <div className="absolute top-3 right-3">
           {hasStock ? (
@@ -112,7 +115,7 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
       </div>
       
       <div className="p-5 flex flex-col flex-1">
-        <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-indigo-600 transition-colors">
+        <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-indigo-600 transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); setShowDetailModal(true); }}>
           {product.name}
         </h3>
         
@@ -167,7 +170,7 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
                 </div>
               </div>
               <button
-                onClick={handleAddToCart}
+                onClick={(e) => { e.stopPropagation(); handleAddToCart(); }}
                 disabled={adding || loading || !address}
                 className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-lg shadow-lg shadow-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/50 transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
               >
@@ -199,6 +202,15 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
         </div>
       </div>
     </div>
+
+    {/* Modal de detalle del producto */}
+    <ProductDetailModal
+      product={product}
+      isOpen={showDetailModal}
+      onClose={() => setShowDetailModal(false)}
+      onAddToCart={onAddToCart}
+    />
+    </>
   );
 }
 
