@@ -68,7 +68,12 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
 
     setAdding(true);
     try {
-      await addToCart(product.productId, BigInt(quantity));
+      const tx = await addToCart(product.productId, BigInt(quantity));
+      console.log('Producto agregado al carrito, transacción:', tx);
+      
+      // Esperar un momento para que la transacción se procese
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       if (onAddToCart) {
         onAddToCart();
       }
@@ -76,6 +81,7 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
       window.dispatchEvent(new CustomEvent('cartUpdated'));
       alert(`Se agregaron ${quantity} unidades al carrito`);
     } catch (err: any) {
+      console.error('Error al agregar al carrito:', err);
       alert(err.message || 'Error al agregar al carrito');
     } finally {
       setAdding(false);
