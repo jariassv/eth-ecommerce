@@ -79,9 +79,13 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
     if (!address || !usdTokenAddress) return;
 
     try {
-      console.log(`🔄 Refrescando balance para: ${address} (forceRefresh: ${forceRefresh})`);
+      console.log(`🔄 Refrescando balance para: ${address}`);
+      console.log(`   Contrato: ${usdTokenAddress}`);
+      console.log(`   Usando RPC directo (sin cache de MetaMask)`);
+      
       const tokenBalance = await getTokenBalance(usdTokenAddress, address, forceRefresh);
-      console.log(`💰 Balance obtenido: ${tokenBalance} USDT`);
+      
+      console.log(`💰 Balance obtenido directamente de blockchain: ${tokenBalance} USDT`);
       setBalance(formatTokenAmount(tokenBalance));
     } catch (err) {
       console.error('❌ Error loading balance:', err);

@@ -36,25 +36,31 @@ export async function connectWallet(): Promise<string> {
 
 /**
  * Obtener el balance de tokens ERC20
+ * IMPORTANTE: Usa JsonRpcProvider directo para evitar cache de MetaMask
  */
 export async function getTokenBalance(
   contractAddress: string,
   userAddress: string,
   forceRefresh: boolean = false
 ): Promise<string> {
-  const provider = await getProvider();
-  if (!provider) {
-    throw new Error('Proveedor no disponible');
-  }
+  // Usar JsonRpcProvider directo en lugar de BrowserProvider para evitar cache
+  // El BrowserProvider de MetaMask puede cachear datos, causando que el balance no se actualice
+  const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545';
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
 
   // ABI mínimo para balanceOf
   const abi = ['function balanceOf(address) view returns (uint256)'];
   const contract = new ethers.Contract(contractAddress, abi, provider);
   
-  // Si forceRefresh es true, usar blockTag 'latest' para obtener el balance más reciente
-  const options = forceRefresh ? { blockTag: 'latest' } : {};
-  const balance = await contract.balanceOf(userAddress, options);
-  return ethers.formatUnits(balance, 6); // USDToken tiene 6 decimales
+  // Siempre usar blockTag 'latest' para obtener el balance más reciente
+  // Esto evita cualquier problema de cache
+  try {
+    const balance = await contract.balanceOf(userAddress, { blockTag: 'latest' });
+    return ethers.formatUnits(balance, 6); // USDToken tiene 6 decimales
+  } catch (error) {
+    console.error('Error al obtener balance:', error);
+    throw error;
+  }
 }
 
 /**
