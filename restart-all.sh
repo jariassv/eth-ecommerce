@@ -188,6 +188,34 @@ rm -f "${PASARELA_ENV_FILE}.bak" 2>/dev/null || true
 
 print_success "Variables de entorno actualizadas en $PASARELA_ENV_FILE"
 
+# 6c. Configurar .env.local para web-customer
+print_info "Configurando .env.local para web-customer..."
+CUSTOMER_ENV_FILE="web-customer/.env.local"
+
+# Crear .env.local si no existe
+if [ ! -f "$CUSTOMER_ENV_FILE" ]; then
+    cat > "$CUSTOMER_ENV_FILE" << EOF
+# Blockchain Configuration
+NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=
+NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=
+NEXT_PUBLIC_RPC_URL=http://localhost:8545
+NEXT_PUBLIC_CHAIN_ID=31337
+
+# Application Configuration
+NEXT_PUBLIC_APP_URL=http://localhost:6004
+NEXT_PUBLIC_PAYMENT_GATEWAY_URL=http://localhost:6002
+EOF
+    print_info "Creado $CUSTOMER_ENV_FILE básico"
+fi
+
+# Actualizar valores en .env.local de web-customer
+print_info "Actualizando direcciones de contratos en .env.local de web-customer..."
+sed -i.bak "s|NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=$ECOMMERCE_ADDRESS|g" "$CUSTOMER_ENV_FILE"
+sed -i.bak "s|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=$USD_TOKEN_ADDRESS|g" "$CUSTOMER_ENV_FILE"
+rm -f "${CUSTOMER_ENV_FILE}.bak" 2>/dev/null || true
+
+print_success "Variables de entorno actualizadas en $CUSTOMER_ENV_FILE"
+
 # 7. Resumen de direcciones
 echo ""
 print_info "📋 Resumen de direcciones desplegadas:"
@@ -233,13 +261,31 @@ if [[ $REPLY =~ ^[Ss]$ ]]; then
     
     sleep 3
     
+    # Iniciar web-customer
+    print_info "Iniciando web-customer (tienda online)..."
+    cd web-customer
+    
+    if [ ! -d "node_modules" ]; then
+        print_info "Instalando dependencias..."
+        npm install
+    fi
+    
+    npm run dev &
+    CUSTOMER_PID=$!
+    echo $CUSTOMER_PID > /tmp/next-customer.pid
+    cd ..
+    
+    sleep 3
+    
     print_success "Aplicaciones iniciadas:"
     print_info "  - Compra Stablecoin: http://localhost:3000"
     print_info "  - Pasarela de Pagos: http://localhost:6002"
+    print_info "  - Web Customer (Tienda): http://localhost:6004"
 else
     print_info "Para iniciar las aplicaciones manualmente:"
     echo "  cd stablecoin/compra-stableboin && npm run dev"
     echo "  cd stablecoin/pasarela-de-pago && npm run dev"
+    echo "  cd web-customer && npm run dev"
 fi
 
 print_success "Deploy completo finalizado!"
@@ -259,6 +305,11 @@ cleanup() {
         PASARELA_PID=$(cat /tmp/next-pasarela.pid)
         kill $PASARELA_PID 2>/dev/null || true
         rm -f /tmp/next-pasarela.pid
+    fi
+    if [ -f /tmp/next-customer.pid ]; then
+        CUSTOMER_PID=$(cat /tmp/next-customer.pid)
+        kill $CUSTOMER_PID 2>/dev/null || true
+        rm -f /tmp/next-customer.pid
     fi
     print_success "Procesos detenidos"
     exit 0
