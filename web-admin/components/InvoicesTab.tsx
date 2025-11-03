@@ -12,15 +12,21 @@ interface InvoicesTabProps {
 
 export default function InvoicesTab({ companyId }: InvoicesTabProps) {
   const { address, provider } = useWallet();
-  const { getCompanyInvoices, loading } = useEcommerce(provider, address);
+  const { getCompanyInvoices, loading, isReady } = useEcommerce(provider, address);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
 
   useEffect(() => {
-    loadInvoices();
-  }, [companyId]);
+    if (isReady) {
+      loadInvoices();
+    }
+  }, [companyId, isReady]);
 
   const loadInvoices = async () => {
+    if (!isReady) {
+      return;
+    }
+
     try {
       setLoadingInvoices(true);
       const companyInvoices = await getCompanyInvoices(companyId);

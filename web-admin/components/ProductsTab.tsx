@@ -14,17 +14,23 @@ interface ProductsTabProps {
 
 export default function ProductsTab({ companyId }: ProductsTabProps) {
   const { address, provider } = useWallet();
-  const { getCompanyProducts, loading } = useEcommerce(provider, address);
+  const { getCompanyProducts, loading, isReady } = useEcommerce(provider, address);
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   useEffect(() => {
-    loadProducts();
-  }, [companyId]);
+    if (isReady) {
+      loadProducts();
+    }
+  }, [companyId, isReady]);
 
   const loadProducts = async () => {
+    if (!isReady) {
+      return;
+    }
+
     try {
       setLoadingProducts(true);
       const companyProducts = await getCompanyProducts(companyId);
