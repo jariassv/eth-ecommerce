@@ -250,7 +250,7 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setLoading(true);
     setError(null);
     try {
-      const products = await contract.getCompanyProducts(companyId);
+      const products = await contract.getProductsByCompany(companyId);
       return products.map((p: any) => ({
         productId: BigInt(p.productId.toString()),
         companyId: BigInt(p.companyId.toString()),

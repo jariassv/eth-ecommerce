@@ -15,7 +15,7 @@ export const ECOMMERCE_ABI = [
   'function getProduct(uint256 productId) external view returns (tuple(uint256 productId, uint256 companyId, string name, string description, uint256 price, uint256 stock, string ipfsImageHash, string[] ipfsAdditionalImages, uint256 totalSales, bool isActive))',
   'function updateProduct(uint256 productId, uint256 price, uint256 stock) external',
   'function setProductActive(uint256 productId, bool isActive) external',
-  'function getCompanyProducts(uint256 companyId) external view returns (tuple(uint256 productId, uint256 companyId, string name, string description, uint256 price, uint256 stock, string ipfsImageHash, string[] ipfsAdditionalImages, uint256 totalSales, bool isActive)[])',
+  'function getProductsByCompany(uint256 companyId) external view returns (tuple(uint256 productId, uint256 companyId, string name, string description, uint256 price, uint256 stock, string ipfsImageHash, string[] ipfsAdditionalImages, uint256 totalSales, bool isActive)[])',
   'function getAllActiveProducts() external view returns (tuple(uint256 productId, uint256 companyId, string name, string description, uint256 price, uint256 stock, string ipfsImageHash, string[] ipfsAdditionalImages, uint256 totalSales, bool isActive)[])',
   'function getProductCount() external view returns (uint256)',
   
