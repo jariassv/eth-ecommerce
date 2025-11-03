@@ -8,18 +8,30 @@ import Link from 'next/link';
 
 export default function Home() {
   const { address, isConnected, connect } = useWallet();
-  const { getCompanyIdByAddress, isReady } = useEcommerce(null, address);
+  const { getCompanyIdByAddress, getOwner, isReady } = useEcommerce(null, address);
   const [companyId, setCompanyId] = useState<bigint | null>(null);
+  const [isOwner, setIsOwner] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
     if (isConnected && address && isReady) {
       checkCompany();
+      checkIfOwner();
     } else {
       setLoading(false);
     }
   }, [isConnected, address, isReady]);
+
+  const checkIfOwner = async () => {
+    try {
+      const owner = await getOwner();
+      setIsOwner(owner.toLowerCase() === address?.toLowerCase());
+    } catch (err) {
+      console.error('Error checking owner:', err);
+      setIsOwner(false);
+    }
+  };
 
   const checkCompany = async () => {
     try {
@@ -90,9 +102,23 @@ export default function Home() {
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">
                   No tienes una empresa registrada
                 </h1>
-                <p className="text-gray-600 mb-6">
-                  Solo el propietario del contrato puede registrar empresas. Si eres el propietario, puedes registrar una empresa para cualquier dirección.
-                </p>
+                {isOwner ? (
+                  <>
+                    <p className="text-gray-600 mb-6">
+                      Como propietario del contrato, puedes registrar una nueva empresa para cualquier dirección.
+                    </p>
+                    <Link
+                      href="/register"
+                      className="inline-block w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg shadow-indigo-500/50 hover:shadow-xl transition-all transform hover:scale-105"
+                    >
+                      Registrar Nueva Empresa
+                    </Link>
+                  </>
+                ) : (
+                  <p className="text-gray-600 mb-6">
+                    Solo el propietario del contrato puede registrar empresas. Si eres el propietario, puedes registrar una empresa para cualquier dirección.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="bg-white rounded-2xl shadow-xl p-8 text-center">

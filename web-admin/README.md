@@ -1,36 +1,110 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Web Admin - Panel de Administración
 
-## Getting Started
+Panel de administración para gestionar empresas, productos y facturas en el e-commerce blockchain.
 
-First, run the development server:
+## 🚀 URLs Disponibles
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Puerto**: `6003`
+- **URL Base**: `http://localhost:6003`
+
+### Rutas Principales
+
+1. **`/`** - Página principal
+   - Si tienes empresa registrada: Redirige automáticamente a `/company/[id]`
+   - Si eres owner del contrato: Muestra opción para registrar empresa
+   - Si no tienes empresa: Muestra mensaje informativo
+
+2. **`/register`** - Registrar nueva empresa (Solo Owner del Contrato)
+   - Requiere: Ser el propietario del contrato Ecommerce
+   - Permite: Registrar una empresa para cualquier dirección Ethereum
+
+3. **`/company/[id]`** - Panel de gestión de empresa
+   - Requiere: Ser el owner de la empresa (address debe coincidir)
+   - Tabs disponibles:
+     - **Productos**: Crear, editar y gestionar productos
+     - **Facturas**: Ver historial de facturas de la empresa
+
+## 📋 Funcionalidades
+
+### Gestión de Empresas
+- ✅ Registro de empresas (solo owner del contrato)
+- ✅ Validación de permisos
+- ✅ Visualización de información de empresa
+
+### Gestión de Productos
+- ✅ Crear productos con imágenes IPFS
+- ✅ Editar precio y stock
+- ✅ Activar/desactivar productos
+- ✅ Visualización en cards
+
+### Gestión de Facturas
+- ✅ Ver todas las facturas de la empresa
+- ✅ Estado de pago (Pagada/Pendiente)
+- ✅ Información de transacciones blockchain
+
+## 🔧 Configuración
+
+### Variables de Entorno (.env.local)
+
+```env
+# Blockchain Configuration
+NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=0x...
+NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=0x...
+NEXT_PUBLIC_RPC_URL=http://localhost:8545
+NEXT_PUBLIC_CHAIN_ID=31337
+
+# Application Configuration
+NEXT_PUBLIC_APP_URL=http://localhost:6003
+
+# IPFS Configuration (Pinata) - OPCIONAL
+# NEXT_PUBLIC_PINATA_JWT=your_pinata_jwt_here
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### IPFS (Pinata)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Para subir imágenes de productos a IPFS, necesitas:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Crear cuenta en [Pinata](https://pinata.cloud)
+2. Generar un JWT token
+3. Agregarlo a `.env.local` como `NEXT_PUBLIC_PINATA_JWT`
 
-## Learn More
+**Nota**: Sin el JWT, no podrás subir imágenes, pero el resto de funcionalidades funcionará.
 
-To learn more about Next.js, take a look at the following resources:
+## 🎯 Flujo de Uso
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Como Owner del Contrato
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Conectar wallet (debe ser la dirección owner del contrato)
+2. Ir a `/register` para registrar una nueva empresa
+3. Especificar:
+   - Dirección de la empresa (puede ser cualquier dirección)
+   - Nombre de la empresa
+   - Tax ID
+4. Después del registro, serás redirigido a `/company/[id]`
 
-## Deploy on Vercel
+### Como Owner de Empresa
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Conectar wallet con la dirección de la empresa registrada
+2. Automáticamente se redirige a `/company/[id]`
+3. Gestionar productos y ver facturas
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🔐 Seguridad
+
+- **Registro de empresas**: Solo el owner del contrato puede registrar
+- **Gestión de empresa**: Solo el owner de la empresa puede gestionar sus productos y ver sus facturas
+- Validaciones tanto en frontend como en smart contract
+
+## 📦 Instalación
+
+```bash
+cd web-admin
+npm install
+npm run dev
+```
+
+## 🧪 Testing
+
+1. Asegúrate de que Anvil está corriendo
+2. Ejecuta `./restart-all.sh` desde la raíz del proyecto
+3. Accede a `http://localhost:6003`
+4. Conecta tu wallet MetaMask
