@@ -81,6 +81,24 @@ function decodeUint256(hexValue: string): bigint {
 }
 
 /**
+ * Convertir unidades de wei a unidades decimales manualmente
+ * (evita usar ethers.formatUnits que podría tener dependencias internas)
+ */
+function formatUnitsManual(value: bigint | string, decimals: number): string {
+  const bigIntValue = typeof value === 'string' ? BigInt(value) : value;
+  const divisor = BigInt(10 ** decimals);
+  const wholePart = bigIntValue / divisor;
+  const fractionalPart = bigIntValue % divisor;
+  
+  // Convertir la parte fraccional a string con padding
+  const fractionalStr = fractionalPart.toString().padStart(decimals, '0');
+  // Eliminar trailing zeros
+  const fractionalTrimmed = fractionalStr.replace(/0+$/, '') || '0';
+  
+  return `${wholePart.toString()}.${fractionalTrimmed}`;
+}
+
+/**
  * Obtener el balance de tokens ERC20
  * IMPORTANTE: Usa API route como proxy para evitar problemas de CORS
  */
@@ -112,8 +130,10 @@ export async function getTokenBalance(
       // Decodificar el resultado (uint256)
       const balanceBigInt = decodeUint256(result);
       
-      // Convertir a string con 6 decimales
-      return ethers.formatUnits(balanceBigInt.toString(), 6);
+      // Convertir a string con 6 decimales manualmente (evita usar ethers.formatUnits)
+      const balanceFormatted = formatUnitsManual(balanceBigInt, 6);
+      console.log(`   Balance raw: ${balanceBigInt.toString()}, formatted: ${balanceFormatted}`);
+      return balanceFormatted;
     } catch (error) {
       console.error('❌ Error al obtener balance:', error);
       if (error instanceof Error) {
