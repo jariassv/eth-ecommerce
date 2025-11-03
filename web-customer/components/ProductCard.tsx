@@ -4,6 +4,7 @@ import { Product } from '@/lib/contracts';
 import { formatTokenAmount } from '@/lib/ethers';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { useWallet } from '@/hooks/useWallet';
+import { getIPFSImageUrl, getNextIPFSGateway } from '@/lib/ipfs';
 import { useState } from 'react';
 
 interface ProductCardProps {
@@ -16,13 +17,40 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
   const { addToCart, loading } = useEcommerce(provider, address);
   const [quantity, setQuantity] = useState<number>(1);
   const [adding, setAdding] = useState(false);
+  const [currentGatewayIndex, setCurrentGatewayIndex] = useState(0);
+  const [imageError, setImageError] = useState(false);
 
   const price = formatTokenAmount(product.price, 6);
   const hasStock = product.stock > 0n;
 
-  // IPFS Gateway URL (usando Cloudflare IPFS)
-  const imageUrl = product.ipfsImageHash
-    ? `https://cloudflare-ipfs.com/ipfs/${product.ipfsImageHash}`
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const img = e.target as HTMLImageElement;
+    const hash = product.ipfsImageHash?.trim();
+    
+    if (!hash) {
+      img.src = '/placeholder-product.png';
+      return;
+    }
+
+    // Intentar con el siguiente gateway
+    const nextGatewayIndex = getNextIPFSGateway(currentGatewayIndex);
+    
+    if (nextGatewayIndex === 0) {
+      // Ya intentamos todos los gateways, usar placeholder
+      console.error('Todos los gateways IPFS fallaron para:', hash);
+      setImageError(true);
+      img.src = '/placeholder-product.png';
+      return;
+    }
+
+    // Intentar con el siguiente gateway
+    console.log(`Gateway ${currentGatewayIndex} falló, intentando con gateway ${nextGatewayIndex}`);
+    setCurrentGatewayIndex(nextGatewayIndex);
+    img.src = getIPFSImageUrl(hash, nextGatewayIndex);
+  };
+
+  const imageUrl = product.ipfsImageHash && product.ipfsImageHash.trim() && !imageError
+    ? getIPFSImageUrl(product.ipfsImageHash, currentGatewayIndex)
     : '/placeholder-product.png';
 
   const handleAddToCart = async () => {
@@ -55,11 +83,16 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
       {/* Imagen con overlay en hover */}
       <div className="relative overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
         <img
+          key={`${product.productId}-${currentGatewayIndex}`}
           src={imageUrl}
           alt={product.name}
           className="w-full h-56 object-cover group-hover:scale-110 transition-transform duration-500"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = '/placeholder-product.png';
+          onError={handleImageError}
+          onLoad={() => {
+            if (product.ipfsImageHash && currentGatewayIndex > 0) {
+              console.log(`Imagen IPFS cargada correctamente con gateway ${currentGatewayIndex}:`, product.ipfsImageHash);
+            }
+            setImageError(false);
           }}
         />
         {/* Badge de stock */}
