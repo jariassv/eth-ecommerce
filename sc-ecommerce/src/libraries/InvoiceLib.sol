@@ -3,12 +3,16 @@ pragma solidity ^0.8.24;
 
 import "./Types.sol";
 import "./ProductLib.sol";
+import "./PaymentLib.sol";
 
 /**
  * @title InvoiceLib
  * @dev Librería para gestión de facturas
  */
 library InvoiceLib {
+    // Constantes para validación
+    uint256 private constant ROUNDING_TOLERANCE_PERCENT = 1000; // 0.1% = 1000/1000000
+    uint256 private constant MIN_TOLERANCE_BASE_UNITS = 100; // 100 unidades base (0.0001 con 6 decimals)
     // Storage layout
     struct Storage {
         mapping(uint256 => Types.Invoice) invoices;
@@ -40,52 +44,75 @@ library InvoiceLib {
     }
 
     /**
-     * @dev Crear una factura desde el carrito
+     * @dev Crear una factura desde el carrito con soporte multimoneda
      * @param customerAddress Dirección del cliente
      * @param companyId ID de la empresa
      * @param cart Array de items del carrito
      * @param productStorage Storage de ProductLib
+     * @param paymentStorage Storage de PaymentLib
+     * @param paymentToken Token de pago seleccionado (address(0) = USDT por defecto)
+     * @param expectedTotalUSDT Total esperado en USDT para validación dual
      * @return invoiceId ID de la factura creada
-     * @return totalAmount Monto total de la factura
+     * @return totalAmount Monto total de la factura en el token seleccionado
      */
     function createInvoiceFromCart(
         Storage storage self,
         address customerAddress,
         uint256 companyId,
         Types.CartItem[] memory cart,
-        ProductLib.Storage storage productStorage
-    ) internal returns (uint256, uint256) {
+        ProductLib.Storage storage productStorage,
+        PaymentLib.Storage storage paymentStorage,
+        address paymentToken,
+        uint256 expectedTotalUSDT
+    ) internal returns (uint256 invoiceId, uint256 totalAmount) {
         require(customerAddress != address(0), "InvoiceLib: invalid customer address");
         require(companyId > 0, "InvoiceLib: invalid companyId");
         require(cart.length > 0, "InvoiceLib: cart is empty");
 
-        // Filtrar items del carrito que pertenecen a esta empresa
-        Types.CartItem[] memory companyItems = new Types.CartItem[](cart.length);
-        uint256 itemCount = 0;
-        uint256 totalAmount = 0;
+        // Determinar token de pago y validar
+        address usdtAddress = paymentStorage.usdTokenAddress;
+        if (paymentToken == address(0)) {
+            paymentToken = usdtAddress;
+        }
+        require(
+            paymentToken == usdtAddress || paymentToken == paymentStorage.eurtTokenAddress,
+            "InvoiceLib: unsupported payment token"
+        );
 
-        for (uint256 i = 0; i < cart.length; i++) {
-            Types.Product memory product = ProductLib.getProduct(productStorage, cart[i].productId);
-            
-            if (product.companyId == companyId && product.isActive) {
-                require(
-                    ProductLib.hasStock(productStorage, cart[i].productId, cart[i].quantity),
-                    "InvoiceLib: insufficient stock"
-                );
-                
-                companyItems[itemCount] = cart[i];
-                itemCount++;
-                totalAmount += product.price * cart[i].quantity;
-            }
+        // Calcular total en USDT y filtrar items
+        (uint256 totalUSDT, uint256 itemCount) = _calculateCartTotal(
+            cart,
+            companyId,
+            productStorage
+        );
+        require(itemCount > 0, "InvoiceLib: no items for this company in cart");
+        require(totalUSDT > 0, "InvoiceLib: invalid total amount");
+
+        // Validación Dual del Total
+        if (expectedTotalUSDT > 0) {
+            uint256 tolerance = _calculateTolerance(totalUSDT);
+            require(
+                totalUSDT >= expectedTotalUSDT - tolerance && 
+                totalUSDT <= expectedTotalUSDT + tolerance,
+                "InvoiceLib: total mismatch"
+            );
         }
 
-        require(itemCount > 0, "InvoiceLib: no items for this company in cart");
-        require(totalAmount > 0, "InvoiceLib: invalid total amount");
+        // Validar oráculo y convertir si es necesario
+        if (paymentToken != usdtAddress) {
+            require(
+                address(paymentStorage.oracle) != address(0) && 
+                paymentStorage.oracle.isRateValid(),
+                "InvoiceLib: oracle rate invalid"
+            );
+            totalAmount = paymentStorage.oracle.convertUSDTtoEURT(totalUSDT);
+        } else {
+            totalAmount = totalUSDT;
+        }
 
+        // Crear invoice
         self.invoiceCount++;
-        uint256 invoiceId = self.invoiceCount;
-
-        // Crear la factura
+        invoiceId = self.invoiceCount;
         self.invoices[invoiceId] = Types.Invoice({
             invoiceId: invoiceId,
             companyId: companyId,
@@ -94,10 +121,53 @@ library InvoiceLib {
             timestamp: block.timestamp,
             isPaid: false,
             paymentTxHash: bytes32(0),
-            itemCount: itemCount
+            itemCount: itemCount,
+            paymentToken: paymentToken,
+            expectedTotalUSDT: expectedTotalUSDT
         });
 
-        // Agregar items al mapping
+        // Guardar items
+        _saveInvoiceItems(self, invoiceId, cart, companyId, productStorage, itemCount);
+        self.invoiceItemCounts[invoiceId] = itemCount;
+        self.invoicesByCustomer[customerAddress].push(invoiceId);
+        self.invoicesByCompany[companyId].push(invoiceId);
+
+        return (invoiceId, totalAmount);
+    }
+
+    /**
+     * @dev Calcular el total del carrito en USDT y obtener el número de items
+     */
+    function _calculateCartTotal(
+        Types.CartItem[] memory cart,
+        uint256 companyId,
+        ProductLib.Storage storage productStorage
+    ) private view returns (uint256 totalUSDT, uint256 itemCount) {
+        for (uint256 i = 0; i < cart.length; i++) {
+            Types.Product memory product = ProductLib.getProduct(productStorage, cart[i].productId);
+            
+            if (product.companyId == companyId && product.isActive) {
+                require(
+                    ProductLib.hasStock(productStorage, cart[i].productId, cart[i].quantity),
+                    "InvoiceLib: insufficient stock"
+                );
+                totalUSDT += product.price * cart[i].quantity;
+                itemCount++;
+            }
+        }
+    }
+
+    /**
+     * @dev Guardar items de la invoice
+     */
+    function _saveInvoiceItems(
+        Storage storage self,
+        uint256 invoiceId,
+        Types.CartItem[] memory cart,
+        uint256 companyId,
+        ProductLib.Storage storage productStorage,
+        uint256 itemCount
+    ) private {
         uint256 itemIndex = 0;
         for (uint256 i = 0; i < cart.length; i++) {
             Types.Product memory product = ProductLib.getProduct(productStorage, cart[i].productId);
@@ -105,15 +175,21 @@ library InvoiceLib {
                 bytes32 key = _getInvoiceItemKey(invoiceId, itemIndex);
                 self.invoiceItems[key] = cart[i];
                 itemIndex++;
+                if (itemIndex >= itemCount) break;
             }
         }
+    }
 
-        self.invoiceItemCounts[invoiceId] = itemCount;
-
-        self.invoicesByCustomer[customerAddress].push(invoiceId);
-        self.invoicesByCompany[companyId].push(invoiceId);
-
-        return (invoiceId, totalAmount);
+    /**
+     * @dev Calcular la tolerancia de redondeo (±0.1% o 100 unidades base, el mayor)
+     * @param amount Monto base
+     * @return tolerance Tolerancia calculada
+     */
+    function _calculateTolerance(uint256 amount) private pure returns (uint256) {
+        uint256 percentTolerance = (amount * ROUNDING_TOLERANCE_PERCENT) / 1_000_000;
+        return percentTolerance > MIN_TOLERANCE_BASE_UNITS 
+            ? percentTolerance 
+            : MIN_TOLERANCE_BASE_UNITS;
     }
 
     /**

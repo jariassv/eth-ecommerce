@@ -84,10 +84,19 @@ contract Ecommerce is Ownable {
      * @dev Constructor
      * @param initialOwner Dirección del propietario del contrato
      * @param usdTokenAddress Dirección del contrato USDToken
+     * @param eurtTokenAddress Dirección del contrato EURToken
+     * @param oracleAddress Dirección del contrato ExchangeRateOracle
      */
-    constructor(address initialOwner, address usdTokenAddress) Ownable(initialOwner) {
-        require(usdTokenAddress != address(0), "Ecommerce: invalid token address");
-        paymentStorage.initialize(usdTokenAddress);
+    constructor(
+        address initialOwner, 
+        address usdTokenAddress,
+        address eurtTokenAddress,
+        address oracleAddress
+    ) Ownable(initialOwner) {
+        require(usdTokenAddress != address(0), "Ecommerce: invalid USDT address");
+        require(eurtTokenAddress != address(0), "Ecommerce: invalid EURT address");
+        require(oracleAddress != address(0), "Ecommerce: invalid oracle address");
+        paymentStorage.initialize(usdTokenAddress, eurtTokenAddress, oracleAddress);
     }
 
     // ============ EMPRESAS ============
@@ -434,7 +443,7 @@ contract Ecommerce is Ownable {
     // ============ FACTURAS ============
 
     /**
-     * @dev Crear una factura desde el carrito
+     * @dev Crear una factura desde el carrito (backward compatibility - usa USDT por defecto)
      * @param companyId ID de la empresa
      * @return invoiceId ID de la factura creada
      * @return totalAmount Monto total de la factura
@@ -442,6 +451,22 @@ contract Ecommerce is Ownable {
     function createInvoice(
         uint256 companyId
     ) external returns (uint256, uint256) {
+        return createInvoiceWithCurrency(companyId, address(0), 0);
+    }
+
+    /**
+     * @dev Crear una factura desde el carrito con multimoneda
+     * @param companyId ID de la empresa
+     * @param paymentToken Token de pago seleccionado (address(0) = USDT por defecto)
+     * @param expectedTotalUSDT Total esperado en USDT para validación dual (0 = no validación)
+     * @return invoiceId ID de la factura creada
+     * @return totalAmount Monto total de la factura en el token seleccionado
+     */
+    function createInvoiceWithCurrency(
+        uint256 companyId,
+        address paymentToken,
+        uint256 expectedTotalUSDT
+    ) public returns (uint256, uint256) {
         // Obtener el carrito actual del usuario
         uint256 itemCount = cartItemCounts[msg.sender];
         Types.CartItem[] memory cart = new Types.CartItem[](itemCount);
@@ -454,7 +479,10 @@ contract Ecommerce is Ownable {
             msg.sender,
             companyId,
             cart,
-            productStorage
+            productStorage,
+            paymentStorage,
+            paymentToken,
+            expectedTotalUSDT
         );
 
         emit InvoiceCreated(invoiceId, msg.sender, companyId, totalAmount);
@@ -522,31 +550,15 @@ contract Ecommerce is Ownable {
         require(!invoice.isPaid, "Ecommerce: invoice already paid");
         require(invoice.totalAmount > 0, "Ecommerce: invalid amount");
 
-        // Obtener información de la empresa
-        Types.Company memory company = companyStorage.getCompany(invoice.companyId);
-        require(company.isActive, "Ecommerce: company not active");
-
-        // Transferir tokens del cliente a la empresa
-        IERC20 token = IERC20(paymentStorage.getTokenAddress());
-        
-        require(
-            token.balanceOf(msg.sender) >= invoice.totalAmount,
-            "Ecommerce: insufficient balance"
-        );
-
-        require(
-            token.allowance(msg.sender, address(this)) >= invoice.totalAmount,
-            "Ecommerce: insufficient allowance"
-        );
-
-        // Realizar la transferencia
-        bool success = token.transferFrom(
+        // Procesar el pago usando PaymentLib (maneja el token automáticamente)
+        (bool success, address paymentTokenAddress) = paymentStorage.processPayment(
             msg.sender,
-            company.companyAddress,
-            invoice.totalAmount
+            invoiceId,
+            invoiceStorage,
+            companyStorage
         );
 
-        require(success, "Ecommerce: transfer failed");
+        require(success, "Ecommerce: payment processing failed");
 
         // Reducir stock de los productos y marcar como comprados para reviews
         Types.CartItem[] memory items = InvoiceLib.getInvoiceItems(invoiceStorage, invoiceId);
@@ -566,7 +578,7 @@ contract Ecommerce is Ownable {
         }
 
         bytes32 paymentTxHash = keccak256(
-            abi.encodePacked(block.timestamp, invoiceId, msg.sender)
+            abi.encodePacked(block.timestamp, invoiceId, msg.sender, paymentTokenAddress)
         );
 
         invoiceStorage.markAsPaid(invoiceId, paymentTxHash);
@@ -583,11 +595,19 @@ contract Ecommerce is Ownable {
     }
 
     /**
-     * @dev Obtener la dirección del token de pago
+     * @dev Obtener la dirección del token de pago USDT
      * @return address Dirección del contrato USDToken
      */
     function getTokenAddress() external view returns (address) {
         return paymentStorage.getTokenAddress();
+    }
+
+    /**
+     * @dev Obtener la dirección del token EURT
+     * @return address Dirección del contrato EURToken
+     */
+    function getEURTTokenAddress() external view returns (address) {
+        return paymentStorage.getEURTTokenAddress();
     }
 
     /**
@@ -597,8 +617,11 @@ contract Ecommerce is Ownable {
      */
     function canPayInvoice(uint256 invoiceId) external view returns (bool) {
         Types.Invoice memory invoice = invoiceStorage.getInvoice(invoiceId);
-        return paymentStorage.hasSufficientBalance(msg.sender, invoice.totalAmount) &&
-               paymentStorage.hasSufficientAllowance(msg.sender, invoice.totalAmount);
+        address tokenAddress = invoice.paymentToken == address(0) 
+            ? paymentStorage.getTokenAddress() 
+            : invoice.paymentToken;
+        return paymentStorage.hasSufficientBalance(msg.sender, invoice.totalAmount, tokenAddress) &&
+               paymentStorage.hasSufficientAllowance(msg.sender, invoice.totalAmount, tokenAddress);
     }
 
     // ============ REVIEWS ============

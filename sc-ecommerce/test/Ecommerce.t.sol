@@ -5,10 +5,14 @@ import "forge-std/Test.sol";
 import "../src/Ecommerce.sol";
 import "../src/libraries/Types.sol";
 import "./mocks/MockUSDToken.sol";
+import "./mocks/MockEURToken.sol";
+import "./mocks/MockExchangeRateOracle.sol";
 
 contract EcommerceTest is Test {
     Ecommerce public ecommerce;
     MockUSDToken public usdToken;
+    MockEURToken public eurtToken;
+    MockExchangeRateOracle public oracle;
     
     address public owner;
     address public company;
@@ -16,6 +20,7 @@ contract EcommerceTest is Test {
     address public customer2;
 
     uint256 public constant INITIAL_TOKEN_SUPPLY = 1_000_000 * 10**6; // 1M tokens con 6 decimals
+    uint256 public constant INITIAL_RATE = 1_100_000; // 1.10 USD/EUR
 
     event CompanyRegistered(uint256 indexed companyId, address indexed companyAddress, string name);
     event ProductAdded(uint256 indexed productId, uint256 indexed companyId, string name, uint256 price);
@@ -28,23 +33,40 @@ contract EcommerceTest is Test {
         customer = address(0x2);
         customer2 = address(0x3);
 
-        // Deploy Mock USDToken
+        // Deploy Mock Tokens
         usdToken = new MockUSDToken(owner);
+        eurtToken = new MockEURToken(owner);
         
         // Mint tokens para testing
         usdToken.mint(company, INITIAL_TOKEN_SUPPLY);
         usdToken.mint(customer, INITIAL_TOKEN_SUPPLY);
         usdToken.mint(customer2, INITIAL_TOKEN_SUPPLY);
+        
+        eurtToken.mint(company, INITIAL_TOKEN_SUPPLY);
+        eurtToken.mint(customer, INITIAL_TOKEN_SUPPLY);
+        eurtToken.mint(customer2, INITIAL_TOKEN_SUPPLY);
+
+        // Deploy Oracle
+        oracle = new MockExchangeRateOracle(
+            owner,
+            address(usdToken),
+            address(eurtToken),
+            INITIAL_RATE
+        );
 
         // Deploy Ecommerce
-        ecommerce = new Ecommerce(owner, address(usdToken));
+        ecommerce = new Ecommerce(
+            owner,
+            address(usdToken),
+            address(eurtToken),
+            address(oracle)
+        );
     }
 
     // ============ TESTS DE EMPRESAS ============
 
     function test_RegisterCompany() public {
-        vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         assertEq(companyId, 1);
         assertEq(ecommerce.getCompanyCount(), 1);
@@ -57,25 +79,21 @@ contract EcommerceTest is Test {
     }
 
     function test_RegisterCompanyFailsWithEmptyName() public {
-        vm.prank(company);
         vm.expectRevert("CompanyLib: name required");
-        ecommerce.registerCompany("", "TAX123");
+        ecommerce.registerCompany(company, "", "TAX123");
     }
 
     function test_RegisterCompanyFailsWithEmptyTaxId() public {
-        vm.prank(company);
         vm.expectRevert("CompanyLib: taxId required");
-        ecommerce.registerCompany("Mi Tienda", "");
+        ecommerce.registerCompany(company, "Mi Tienda", "");
     }
 
     function test_RegisterMultipleCompanies() public {
         address company2 = address(0x4);
         
-        vm.prank(company);
-        uint256 companyId1 = ecommerce.registerCompany("Tienda 1", "TAX1");
+        uint256 companyId1 = ecommerce.registerCompany(company, "Tienda 1", "TAX1");
         
-        vm.prank(company2);
-        uint256 companyId2 = ecommerce.registerCompany("Tienda 2", "TAX2");
+        uint256 companyId2 = ecommerce.registerCompany(company2, "Tienda 2", "TAX2");
 
         assertEq(companyId1, 1);
         assertEq(companyId2, 2);
@@ -83,17 +101,14 @@ contract EcommerceTest is Test {
     }
 
     function test_CannotRegisterCompanyTwice() public {
-        vm.prank(company);
-        ecommerce.registerCompany("Mi Tienda", "TAX123");
+        ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
-        vm.prank(company);
         vm.expectRevert("CompanyLib: address already registered");
-        ecommerce.registerCompany("Otra Tienda", "TAX456");
+        ecommerce.registerCompany(company, "Otra Tienda", "TAX456");
     }
 
     function test_GetCompanyIdByAddress() public {
-        vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         assertEq(ecommerce.getCompanyIdByAddress(company), companyId);
         assertEq(ecommerce.getCompanyIdByAddress(address(0x999)), 0);
@@ -104,7 +119,7 @@ contract EcommerceTest is Test {
     function test_AddProduct() public {
         // Registrar empresa primero
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         // Agregar producto
         vm.prank(company);
@@ -143,7 +158,7 @@ contract EcommerceTest is Test {
 
     function test_AddMultipleProducts() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId1 = ecommerce.addProduct("Producto 1", "Desc 1", 1000 * 10**6, 100, "hash1", new string[](0));
@@ -158,7 +173,7 @@ contract EcommerceTest is Test {
 
     function test_UpdateProduct() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -174,7 +189,7 @@ contract EcommerceTest is Test {
     function test_CannotUpdateProductFromOtherCompany() public {
         address otherCompany = address(0x5);
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -186,7 +201,7 @@ contract EcommerceTest is Test {
 
     function test_GetAllActiveProducts() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         ecommerce.addProduct("Producto 1", "Desc 1", 1000 * 10**6, 100, "hash1", new string[](0));
@@ -202,7 +217,7 @@ contract EcommerceTest is Test {
 
     function test_AddToCart() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -219,7 +234,7 @@ contract EcommerceTest is Test {
 
     function test_AddToCartIncreasesQuantity() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -238,7 +253,7 @@ contract EcommerceTest is Test {
 
     function test_AddToCartFailsWithInsufficientStock() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 10, "hash", new string[](0));
@@ -250,7 +265,7 @@ contract EcommerceTest is Test {
 
     function test_GetCartTotal() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId1 = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash1", new string[](0));
@@ -271,7 +286,7 @@ contract EcommerceTest is Test {
 
     function test_ClearCart() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -291,7 +306,7 @@ contract EcommerceTest is Test {
 
     function test_CreateInvoice() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -314,7 +329,7 @@ contract EcommerceTest is Test {
 
     function test_CreateInvoiceFailsWithEmptyCart() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(customer);
         vm.expectRevert("InvoiceLib: cart is empty");
@@ -324,10 +339,10 @@ contract EcommerceTest is Test {
     function test_CreateInvoiceOnlyForCompanyProducts() public {
         address company2 = address(0x6);
         vm.prank(company);
-        uint256 companyId1 = ecommerce.registerCompany("Tienda 1", "TAX1");
+        uint256 companyId1 = ecommerce.registerCompany(company, "Tienda 1", "TAX1");
         
         vm.prank(company2);
-        uint256 companyId2 = ecommerce.registerCompany("Tienda 2", "TAX2");
+        uint256 companyId2 = ecommerce.registerCompany(company, "Tienda 2", "TAX2");
 
         vm.prank(company);
         uint256 productId1 = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash1", new string[](0));
@@ -357,7 +372,7 @@ contract EcommerceTest is Test {
 
     function test_ProcessPayment() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -396,7 +411,7 @@ contract EcommerceTest is Test {
 
     function test_ProcessPaymentFailsWithInsufficientBalance() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -418,7 +433,7 @@ contract EcommerceTest is Test {
 
     function test_ProcessPaymentFailsWithInsufficientAllowance() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -437,7 +452,7 @@ contract EcommerceTest is Test {
 
     function test_CannotPayInvoiceTwice() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -467,7 +482,7 @@ contract EcommerceTest is Test {
     function test_FullFlow() public {
         // 1. Registrar empresa
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         // 2. Agregar productos
         vm.prank(company);
@@ -528,7 +543,7 @@ contract EcommerceTest is Test {
 
     function test_MultipleCustomersMultipleOrders() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -569,7 +584,7 @@ contract EcommerceTest is Test {
 
     function test_GetProductCount() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Tienda", "TAX");
+        uint256 companyId = ecommerce.registerCompany(company, "Tienda", "TAX");
 
         vm.prank(company);
         ecommerce.addProduct("Prod 1", "Desc", 1000 * 10**6, 100, "hash1", new string[](0));
@@ -584,17 +599,17 @@ contract EcommerceTest is Test {
         address company2 = address(0x4);
         
         vm.prank(company);
-        ecommerce.registerCompany("Tienda 1", "TAX1");
+        ecommerce.registerCompany(company, "Tienda 1", "TAX1");
         
         vm.prank(company2);
-        ecommerce.registerCompany("Tienda 2", "TAX2");
+        ecommerce.registerCompany(company, "Tienda 2", "TAX2");
 
         assertEq(ecommerce.getCompanyCount(), 2);
     }
 
     function test_GetCartItemCount() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Tienda", "TAX");
+        uint256 companyId = ecommerce.registerCompany(company, "Tienda", "TAX");
 
         vm.prank(company);
         uint256 productId1 = ecommerce.addProduct("Prod 1", "Desc", 1000 * 10**6, 100, "hash1", new string[](0));
@@ -615,7 +630,7 @@ contract EcommerceTest is Test {
 
     function test_GetInvoiceItems() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Tienda", "TAX");
+        uint256 companyId = ecommerce.registerCompany(company, "Tienda", "TAX");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Prod", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -634,7 +649,7 @@ contract EcommerceTest is Test {
 
     function test_GetCompanyInvoices() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Tienda", "TAX");
+        uint256 companyId = ecommerce.registerCompany(company, "Tienda", "TAX");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Prod", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -664,7 +679,7 @@ contract EcommerceTest is Test {
 
     function test_CanPayInvoice() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Tienda", "TAX");
+        uint256 companyId = ecommerce.registerCompany(company, "Tienda", "TAX");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Prod", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -691,7 +706,7 @@ contract EcommerceTest is Test {
 
     function test_ProductWithMultipleImages() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Tienda", "TAX");
+        uint256 companyId = ecommerce.registerCompany(company, "Tienda", "TAX");
 
         string[] memory additionalImages = new string[](2);
         additionalImages[0] = "ipfs-hash-img2";
@@ -714,7 +729,7 @@ contract EcommerceTest is Test {
 
     function test_ProductStockReductionAfterPayment() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Tienda", "TAX");
+        uint256 companyId = ecommerce.registerCompany(company, "Tienda", "TAX");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Prod", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -743,7 +758,7 @@ contract EcommerceTest is Test {
 
     function test_AddReview() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -777,7 +792,7 @@ contract EcommerceTest is Test {
 
     function test_AddReviewFailsWithoutPurchase() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -790,7 +805,7 @@ contract EcommerceTest is Test {
 
     function test_AddReviewFailsWithInvalidRating() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -820,7 +835,7 @@ contract EcommerceTest is Test {
 
     function test_AddReviewFailsWithEmptyComment() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -846,7 +861,7 @@ contract EcommerceTest is Test {
 
     function test_CannotReviewSameProductTwice() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -876,7 +891,7 @@ contract EcommerceTest is Test {
 
     function test_GetProductReviews() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -924,7 +939,7 @@ contract EcommerceTest is Test {
 
     function test_GetProductAverageRating() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -961,7 +976,7 @@ contract EcommerceTest is Test {
 
     function test_GetProductAverageRatingNoReviews() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -974,7 +989,7 @@ contract EcommerceTest is Test {
 
     function test_HasPurchasedProduct() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -1005,7 +1020,7 @@ contract EcommerceTest is Test {
 
     function test_GetMyReviews() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId1 = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash1", new string[](0));
@@ -1041,7 +1056,7 @@ contract EcommerceTest is Test {
 
     function test_GetReviewCount() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -1079,7 +1094,7 @@ contract EcommerceTest is Test {
 
     function test_GetProductReviewCount() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));
@@ -1117,7 +1132,7 @@ contract EcommerceTest is Test {
 
     function test_MultipleReviewsSameProductDifferentCustomers() public {
         vm.prank(company);
-        uint256 companyId = ecommerce.registerCompany("Mi Tienda", "TAX123");
+        uint256 companyId = ecommerce.registerCompany(company, "Mi Tienda", "TAX123");
 
         vm.prank(company);
         uint256 productId = ecommerce.addProduct("Producto 1", "Desc", 1000 * 10**6, 100, "hash", new string[](0));

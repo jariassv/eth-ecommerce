@@ -53,6 +53,8 @@ library Types {
         bool isPaid;
         bytes32 paymentTxHash;
         uint256 itemCount; // Cantidad de items en la factura
+        address paymentToken; // Token de pago (USDT o EURT). Si es address(0), se usa USDT por defecto
+        uint256 expectedTotalUSDT; // Total esperado en USDT para validación dual (solo para invoices nuevas)
     }
 
     /**
