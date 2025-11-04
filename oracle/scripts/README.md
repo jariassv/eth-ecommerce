@@ -41,7 +41,7 @@ npm run fetch-rate
 
 Obtiene el rate EUR/USD desde la API externa y muestra el resultado.
 
-### Actualizar Rate
+### Actualizar Rate (desde API externa)
 
 ```bash
 npm run update-rate
@@ -52,6 +52,28 @@ npm run update-rate
 3. Compara ambos rates
 4. Solo actualiza si la diferencia es >= `RATE_UPDATE_THRESHOLD` (default: 0.1%)
 5. Envía la transacción para actualizar el rate
+
+### Actualizar Rate Manualmente
+
+```bash
+npm run update-rate-manual <rate>
+```
+
+Permite actualizar el rate especificando directamente el valor, sin consultar la API externa.
+
+**Ejemplo:**
+```bash
+npm run update-rate-manual 1.10
+```
+
+**Características:**
+- Actualiza el rate directamente con el valor especificado
+- Valida que el rate esté en un rango razonable (0.8 - 1.5)
+- Verifica que el wallet sea el owner del contrato
+- Muestra el rate actual antes de actualizar
+- Confirma la actualización después de la transacción
+
+**Nota:** El rate debe estar en formato decimal (ej: 1.10 = 1.10 USD por EUR)
 
 ## Variables de Entorno
 
