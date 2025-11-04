@@ -15,7 +15,17 @@ import PriceConverter from '@/components/PriceConverter';
 import Link from 'next/link';
 
 // Componente para cada item del carrito
-function CartItemRow({ item, product, onRemove }: { item: CartItem; product: Product; onRemove: () => Promise<void> }) {
+function CartItemRow({ 
+  item, 
+  product, 
+  onRemove, 
+  selectedCurrency 
+}: { 
+  item: CartItem; 
+  product: Product; 
+  onRemove: () => Promise<void>;
+  selectedCurrency: 'USDT' | 'EURT';
+}) {
   const [removing, setRemoving] = useState(false);
 
   const handleRemove = async () => {
@@ -33,7 +43,6 @@ function CartItemRow({ item, product, onRemove }: { item: CartItem; product: Pro
   };
 
   const itemTotal = product.price * item.quantity;
-  const itemTotalFormatted = formatTokenAmount(itemTotal, 6);
   const imageUrl = product.ipfsImageHash
     ? getIPFSImageUrl(product.ipfsImageHash)
     : '/placeholder-product.png';
@@ -60,7 +69,12 @@ function CartItemRow({ item, product, onRemove }: { item: CartItem; product: Pro
           </p>
           <div className="mt-2 flex items-center gap-4 text-sm">
             <span className="text-gray-600">
-              Precio: <span className="font-semibold text-indigo-600">${formatTokenAmount(product.price, 6)} USDT</span>
+              Precio unitario: <PriceConverter
+                amount={product.price}
+                fromCurrency={selectedCurrency}
+                showEquivalent={false}
+                decimals={6}
+              />
             </span>
             <span className="text-gray-400">•</span>
             <span className="text-gray-600">
@@ -69,10 +83,12 @@ function CartItemRow({ item, product, onRemove }: { item: CartItem; product: Pro
           </div>
         </div>
         <div className="text-right flex-shrink-0">
-          <p className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            ${itemTotalFormatted}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">USDT</p>
+          <PriceConverter
+            amount={itemTotal}
+            fromCurrency={selectedCurrency}
+            showEquivalent={false}
+            decimals={6}
+          />
         </div>
         <button
           onClick={handleRemove}
@@ -343,6 +359,7 @@ export default function CartPage() {
                       key={item.productId.toString()}
                       item={item}
                       product={product}
+                      selectedCurrency={selectedCurrency}
                       onRemove={async () => {
                         await removeFromCart(item.productId);
                         await loadCart();
