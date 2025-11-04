@@ -386,6 +386,8 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
         isPaid: inv.isPaid,
         paymentTxHash: inv.paymentTxHash,
         itemCount: BigInt(inv.itemCount.toString()),
+        paymentToken: inv.paymentToken || '0x0000000000000000000000000000000000000000',
+        expectedTotalUSDT: BigInt(inv.expectedTotalUSDT?.toString() || '0'),
       }));
     } catch (err: any) {
       console.error('Error al obtener facturas:', err);
@@ -412,6 +414,8 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
         isPaid: invoice.isPaid,
         paymentTxHash: invoice.paymentTxHash,
         itemCount: BigInt(invoice.itemCount.toString()),
+        paymentToken: invoice.paymentToken || '0x0000000000000000000000000000000000000000',
+        expectedTotalUSDT: BigInt(invoice.expectedTotalUSDT?.toString() || '0'),
       };
     } catch (err: any) {
       setError(err.message || 'Error al obtener factura');
