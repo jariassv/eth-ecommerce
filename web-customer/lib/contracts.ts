@@ -17,8 +17,8 @@ export const ECOMMERCE_ABI = [
   
   // Facturas
   'function createInvoice(uint256 companyId) external returns (uint256 invoiceId, uint256 totalAmount)',
-  'function getInvoice(uint256 invoiceId) external view returns (tuple(uint256 invoiceId, uint256 companyId, address customerAddress, uint256 totalAmount, uint256 timestamp, bool isPaid, bytes32 paymentTxHash, uint256 itemCount))',
-  'function getMyInvoices() external view returns (tuple(uint256 invoiceId, uint256 companyId, address customerAddress, uint256 totalAmount, uint256 timestamp, bool isPaid, bytes32 paymentTxHash, uint256 itemCount)[])',
+  'function getInvoice(uint256 invoiceId) external view returns (tuple(uint256 invoiceId, uint256 companyId, address customerAddress, uint256 totalAmount, uint256 timestamp, bool isPaid, bytes32 paymentTxHash, uint256 itemCount, address paymentToken, uint256 expectedTotalUSDT))',
+  'function getMyInvoices() external view returns (tuple(uint256 invoiceId, uint256 companyId, address customerAddress, uint256 totalAmount, uint256 timestamp, bool isPaid, bytes32 paymentTxHash, uint256 itemCount, address paymentToken, uint256 expectedTotalUSDT)[])',
   'function getInvoiceItems(uint256 invoiceId) external view returns (tuple(uint256 productId, uint256 quantity)[])',
   
   // Empresas
@@ -100,8 +100,8 @@ export interface Invoice {
   isPaid: boolean;
   paymentTxHash: string;
   itemCount: bigint;
-  paymentToken?: string; // Token de pago (USDT o EURT)
-  expectedTotalUSDT?: bigint; // Total esperado en USDT
+  paymentToken: string; // Token de pago (USDT o EURT). address(0) = USDT por defecto
+  expectedTotalUSDT: bigint; // Total esperado en USDT para validación dual
 }
 
 /**
