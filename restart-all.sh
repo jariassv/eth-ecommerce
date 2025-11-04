@@ -30,6 +30,7 @@ print_info() {
 # 1. Detener aplicaciones anteriores
 print_info "Deteniendo aplicaciones anteriores..."
 pkill -f "next dev" || true
+pkill -f "node.*oracle/api" || true
 pkill -f "anvil" || true
 sleep 2
 print_success "Aplicaciones anteriores detenidas"
@@ -86,7 +87,31 @@ fi
 cd ../..
 print_success "EURToken desplegado en: $EUR_TOKEN_ADDRESS"
 
-# 5. Deploy Ecommerce
+# 5. Deploy ExchangeRateOracle
+print_info "Deployando ExchangeRateOracle..."
+cd oracle/sc
+if [ ! -f "out/ExchangeRateOracle.sol/ExchangeRateOracle.json" ]; then
+    forge build
+fi
+export PRIVATE_KEY
+export USDT_TOKEN_ADDRESS=$USD_TOKEN_ADDRESS
+export EURT_TOKEN_ADDRESS=$EUR_TOKEN_ADDRESS
+# Nota: El script de deploy espera USDT_TOKEN_ADDRESS y EURT_TOKEN_ADDRESS (con T)
+# Rate inicial: 1.10 USD por EUR (1,100,000 en 6 decimales)
+export INITIAL_RATE=1100000
+DEPLOY_OUTPUT=$(forge script script/DeployExchangeRateOracle.s.sol --rpc-url http://localhost:8545 --broadcast --private-key $PRIVATE_KEY -vvv 2>&1)
+ORACLE_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "ExchangeRateOracle deployed at:" | tail -1 | sed -n 's/.*ExchangeRateOracle deployed at: \(0x[a-fA-F0-9]\{40\}\).*/\1/p')
+if [ -z "$ORACLE_ADDRESS" ]; then
+    ORACLE_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -iE "0x[a-fA-F0-9]{40}" | tail -1 | grep -oE "0x[a-fA-F0-9]{40}" | tail -1)
+fi
+if [ -z "$ORACLE_ADDRESS" ]; then
+    print_error "No se pudo obtener la dirección del contrato ExchangeRateOracle"
+    exit 1
+fi
+cd ../..
+print_success "ExchangeRateOracle desplegado en: $ORACLE_ADDRESS"
+
+# 6. Deploy Ecommerce
 print_info "Deployando Ecommerce..."
 cd sc-ecommerce
 if [ ! -f "out/Ecommerce.sol/Ecommerce.json" ]; then
@@ -94,6 +119,8 @@ if [ ! -f "out/Ecommerce.sol/Ecommerce.json" ]; then
 fi
 export PRIVATE_KEY
 export USDTOKEN_ADDRESS=$USD_TOKEN_ADDRESS
+export EURTOKEN_ADDRESS=$EUR_TOKEN_ADDRESS
+export EXCHANGE_RATE_ORACLE_ADDRESS=$ORACLE_ADDRESS
 DEPLOY_OUTPUT=$(forge script script/DeployEcommerce.s.sol --rpc-url http://localhost:8545 --broadcast --private-key $PRIVATE_KEY -vvv 2>&1)
 ECOMMERCE_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "Ecommerce deployed at:" | tail -1 | sed -n 's/.*Ecommerce deployed at: \(0x[a-fA-F0-9]\{40\}\).*/\1/p')
 if [ -z "$ECOMMERCE_ADDRESS" ]; then
@@ -105,6 +132,9 @@ if [ -z "$ECOMMERCE_ADDRESS" ]; then
 fi
 unset PRIVATE_KEY
 unset USDTOKEN_ADDRESS
+unset EURTOKEN_ADDRESS
+unset EXCHANGE_RATE_ORACLE_ADDRESS
+unset INITIAL_RATE
 cd ..
 print_success "Ecommerce desplegado en: $ECOMMERCE_ADDRESS"
 
@@ -147,6 +177,13 @@ print_info "Actualizando direcciones de contratos en .env.local..."
 sed -i.bak "s|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=$USD_TOKEN_ADDRESS|g" "$COMPRA_ENV_FILE"
 sed -i.bak "s|NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=$EUR_TOKEN_ADDRESS|g" "$COMPRA_ENV_FILE"
 sed -i.bak "s|OWNER_PRIVATE_KEY=.*|OWNER_PRIVATE_KEY=$OWNER_PRIVATE_KEY|g" "$COMPRA_ENV_FILE"
+# Agregar variables si no existen
+if ! grep -q "NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS" "$COMPRA_ENV_FILE"; then
+    echo "NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=$USD_TOKEN_ADDRESS" >> "$COMPRA_ENV_FILE"
+fi
+if ! grep -q "NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS" "$COMPRA_ENV_FILE"; then
+    echo "NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=$EUR_TOKEN_ADDRESS" >> "$COMPRA_ENV_FILE"
+fi
 rm -f "${COMPRA_ENV_FILE}.bak" 2>/dev/null || true
 
 print_success "Variables de entorno actualizadas en $COMPRA_ENV_FILE"
@@ -183,7 +220,12 @@ fi
 # Actualizar valores en .env.local de pasarela
 print_info "Actualizando direcciones de contratos en .env.local de pasarela..."
 sed -i.bak "s|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=$USD_TOKEN_ADDRESS|g" "$PASARELA_ENV_FILE"
+sed -i.bak "s|NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=$EUR_TOKEN_ADDRESS|g" "$PASARELA_ENV_FILE"
 sed -i.bak "s|NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=$ECOMMERCE_ADDRESS|g" "$PASARELA_ENV_FILE"
+# Agregar variables si no existen
+if ! grep -q "NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS" "$PASARELA_ENV_FILE"; then
+    echo "NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=$EUR_TOKEN_ADDRESS" >> "$PASARELA_ENV_FILE"
+fi
 rm -f "${PASARELA_ENV_FILE}.bak" 2>/dev/null || true
 
 print_success "Variables de entorno actualizadas en $PASARELA_ENV_FILE"
@@ -212,6 +254,15 @@ fi
 print_info "Actualizando direcciones de contratos en .env.local de web-customer..."
 sed -i.bak "s|NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=$ECOMMERCE_ADDRESS|g" "$CUSTOMER_ENV_FILE"
 sed -i.bak "s|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=$USD_TOKEN_ADDRESS|g" "$CUSTOMER_ENV_FILE"
+sed -i.bak "s|NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=$EUR_TOKEN_ADDRESS|g" "$CUSTOMER_ENV_FILE"
+sed -i.bak "s|NEXT_PUBLIC_ORACLE_API_URL=.*|NEXT_PUBLIC_ORACLE_API_URL=http://localhost:3001|g" "$CUSTOMER_ENV_FILE"
+# Agregar variables si no existen
+if ! grep -q "NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS" "$CUSTOMER_ENV_FILE"; then
+    echo "NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=$EUR_TOKEN_ADDRESS" >> "$CUSTOMER_ENV_FILE"
+fi
+if ! grep -q "NEXT_PUBLIC_ORACLE_API_URL" "$CUSTOMER_ENV_FILE"; then
+    echo "NEXT_PUBLIC_ORACLE_API_URL=http://localhost:3001" >> "$CUSTOMER_ENV_FILE"
+fi
 rm -f "${CUSTOMER_ENV_FILE}.bak" 2>/dev/null || true
 
 print_success "Variables de entorno actualizadas en $CUSTOMER_ENV_FILE"
@@ -247,11 +298,85 @@ rm -f "${ADMIN_ENV_FILE}.bak" 2>/dev/null || true
 print_success "Variables de entorno actualizadas en $ADMIN_ENV_FILE"
 print_info "⚠️  OPCIONAL: Configura NEXT_PUBLIC_PINATA_JWT para subir imágenes a IPFS"
 
+# 6e. Configurar .env para Oracle API
+print_info "Configurando .env para Oracle API..."
+ORACLE_API_ENV_FILE="oracle/api/.env"
+
+# Crear .env si no existe
+if [ ! -f "$ORACLE_API_ENV_FILE" ]; then
+    cat > "$ORACLE_API_ENV_FILE" << EOF
+# RPC URL de la blockchain
+RPC_URL=http://localhost:8545
+
+# Dirección del contrato ExchangeRateOracle
+EXCHANGE_RATE_ORACLE_ADDRESS=
+
+# Puerto del servidor (default: 3001)
+PORT=3001
+
+# Entorno
+NODE_ENV=development
+EOF
+    print_info "Creado $ORACLE_API_ENV_FILE básico"
+fi
+
+# Actualizar valores en .env de Oracle API
+print_info "Actualizando direcciones en .env de Oracle API..."
+sed -i.bak "s|RPC_URL=.*|RPC_URL=http://localhost:8545|g" "$ORACLE_API_ENV_FILE"
+sed -i.bak "s|EXCHANGE_RATE_ORACLE_ADDRESS=.*|EXCHANGE_RATE_ORACLE_ADDRESS=$ORACLE_ADDRESS|g" "$ORACLE_API_ENV_FILE"
+sed -i.bak "s|PORT=.*|PORT=3001|g" "$ORACLE_API_ENV_FILE"
+# Agregar variables si no existen
+if ! grep -q "EXCHANGE_RATE_ORACLE_ADDRESS" "$ORACLE_API_ENV_FILE"; then
+    echo "EXCHANGE_RATE_ORACLE_ADDRESS=$ORACLE_ADDRESS" >> "$ORACLE_API_ENV_FILE"
+fi
+rm -f "${ORACLE_API_ENV_FILE}.bak" 2>/dev/null || true
+
+print_success "Variables de entorno actualizadas en $ORACLE_API_ENV_FILE"
+
+# 6f. Configurar .env para Oracle Scripts
+print_info "Configurando .env para Oracle Scripts..."
+ORACLE_SCRIPTS_ENV_FILE="oracle/scripts/.env"
+
+# Crear .env si no existe
+if [ ! -f "$ORACLE_SCRIPTS_ENV_FILE" ]; then
+    cat > "$ORACLE_SCRIPTS_ENV_FILE" << EOF
+# RPC URL de la blockchain
+RPC_URL=http://localhost:8545
+
+# Dirección del contrato ExchangeRateOracle
+EXCHANGE_RATE_ORACLE_ADDRESS=
+
+# Private key del owner del contrato (para firmar transacciones)
+PRIVATE_KEY=$OWNER_PRIVATE_KEY
+
+# Umbral de diferencia para actualizar (en porcentaje, default: 0.1%)
+RATE_UPDATE_THRESHOLD=0.1
+EOF
+    print_info "Creado $ORACLE_SCRIPTS_ENV_FILE básico"
+fi
+
+# Actualizar valores en .env de Oracle Scripts
+print_info "Actualizando direcciones en .env de Oracle Scripts..."
+sed -i.bak "s|RPC_URL=.*|RPC_URL=http://localhost:8545|g" "$ORACLE_SCRIPTS_ENV_FILE"
+sed -i.bak "s|EXCHANGE_RATE_ORACLE_ADDRESS=.*|EXCHANGE_RATE_ORACLE_ADDRESS=$ORACLE_ADDRESS|g" "$ORACLE_SCRIPTS_ENV_FILE"
+sed -i.bak "s|PRIVATE_KEY=.*|PRIVATE_KEY=$OWNER_PRIVATE_KEY|g" "$ORACLE_SCRIPTS_ENV_FILE"
+# Agregar variables si no existen
+if ! grep -q "EXCHANGE_RATE_ORACLE_ADDRESS" "$ORACLE_SCRIPTS_ENV_FILE"; then
+    echo "EXCHANGE_RATE_ORACLE_ADDRESS=$ORACLE_ADDRESS" >> "$ORACLE_SCRIPTS_ENV_FILE"
+fi
+if ! grep -q "PRIVATE_KEY" "$ORACLE_SCRIPTS_ENV_FILE"; then
+    echo "PRIVATE_KEY=$OWNER_PRIVATE_KEY" >> "$ORACLE_SCRIPTS_ENV_FILE"
+fi
+rm -f "${ORACLE_SCRIPTS_ENV_FILE}.bak" 2>/dev/null || true
+
+print_success "Variables de entorno actualizadas en $ORACLE_SCRIPTS_ENV_FILE"
+
 # 7. Resumen de direcciones
 echo ""
 print_info "📋 Resumen de direcciones desplegadas:"
 echo "   USD_TOKEN_ADDRESS=$USD_TOKEN_ADDRESS"
 echo "   EUR_TOKEN_ADDRESS=$EUR_TOKEN_ADDRESS"
+echo "   ORACLE_ADDRESS=$ORACLE_ADDRESS"
 echo "   ECOMMERCE_ADDRESS=$ECOMMERCE_ADDRESS"
 echo "   OWNER_PRIVATE_KEY=$OWNER_PRIVATE_KEY"
 echo ""
@@ -324,17 +449,35 @@ if [[ $REPLY =~ ^[Ss]$ ]]; then
     
     sleep 3
     
+    # Iniciar Oracle API
+    print_info "Iniciando Oracle API..."
+    cd oracle/api
+    
+    if [ ! -d "node_modules" ]; then
+        print_info "Instalando dependencias..."
+        npm install
+    fi
+    
+    npm start &
+    ORACLE_API_PID=$!
+    echo $ORACLE_API_PID > /tmp/oracle-api.pid
+    cd ../..
+    
+    sleep 3
+    
     print_success "Aplicaciones iniciadas:"
     print_info "  - Compra Stablecoin: http://localhost:3000"
     print_info "  - Pasarela de Pagos: http://localhost:6002"
     print_info "  - Web Customer (Tienda): http://localhost:6004"
     print_info "  - Web Admin (Panel): http://localhost:6003"
+    print_info "  - Oracle API: http://localhost:3001"
 else
     print_info "Para iniciar las aplicaciones manualmente:"
     echo "  cd stablecoin/compra-stableboin && npm run dev"
     echo "  cd stablecoin/pasarela-de-pago && npm run dev"
     echo "  cd web-customer && npm run dev"
     echo "  cd web-admin && npm run dev"
+    echo "  cd oracle/api && npm start"
 fi
 
 print_success "Deploy completo finalizado!"
@@ -364,6 +507,11 @@ cleanup() {
         ADMIN_PID=$(cat /tmp/next-admin.pid)
         kill $ADMIN_PID 2>/dev/null || true
         rm -f /tmp/next-admin.pid
+    fi
+    if [ -f /tmp/oracle-api.pid ]; then
+        ORACLE_API_PID=$(cat /tmp/oracle-api.pid)
+        kill $ORACLE_API_PID 2>/dev/null || true
+        rm -f /tmp/oracle-api.pid
     fi
     print_success "Procesos detenidos"
     exit 0
