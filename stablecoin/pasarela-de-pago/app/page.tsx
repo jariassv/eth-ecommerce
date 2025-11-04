@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
 import WalletInfo from '@/components/WalletInfo';
 import PaymentProcessor from '@/components/PaymentProcessor';
+import { getEcommerceContract } from '@/lib/contracts';
 
 interface PaymentParams {
   merchant_address: string | null;
@@ -24,6 +26,8 @@ export default function Home() {
   const [balance, setBalance] = useState<string>('0.00');
   const [tokenType, setTokenType] = useState<'USDT' | 'EURT'>('USDT');
   const [errors, setErrors] = useState<string[]>([]);
+  const [invoiceTokenSymbol, setInvoiceTokenSymbol] = useState<string | undefined>(undefined);
+  const [invoiceTokenAddress, setInvoiceTokenAddress] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     // Leer parámetros de la URL
@@ -63,7 +67,61 @@ export default function Home() {
       date: date,
       redirect: redirect,
     });
+
+    // Cargar información de la invoice para obtener el token requerido
+    if (invoice && merchant) {
+      loadInvoiceInfo(invoice, merchant);
+    }
   }, []);
+
+  const loadInvoiceInfo = async (invoiceId: string, merchantAddr: string) => {
+    const ecommerceAddress = typeof window !== 'undefined'
+      ? (process.env.NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS || '')
+      : '';
+    
+    if (!ecommerceAddress || !window.ethereum) return;
+
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const ecommerceContract = await getEcommerceContract(provider, ecommerceAddress);
+      
+      const invoiceIdNum = parseInt(invoiceId);
+      if (isNaN(invoiceIdNum)) return;
+
+      const invoiceData = await ecommerceContract.getInvoice(invoiceIdNum);
+      
+      const paymentToken = invoiceData.paymentToken;
+      if (paymentToken && paymentToken !== '0x0000000000000000000000000000000000000000') {
+        setInvoiceTokenAddress(paymentToken);
+        
+        // Obtener símbolo del token
+        try {
+          const tokenAbi = ['function symbol() external view returns (string)'];
+          const tokenContract = new ethers.Contract(paymentToken, tokenAbi, provider);
+          const symbol = await tokenContract.symbol();
+          setInvoiceTokenSymbol(symbol);
+        } catch (err) {
+          console.error('Error loading token symbol:', err);
+          // Intentar determinar por dirección
+          const usdTokenAddress = typeof window !== 'undefined'
+            ? (process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS || '')
+            : '';
+          const eurTokenAddress = typeof window !== 'undefined'
+            ? (process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '')
+            : '';
+          
+          if (paymentToken.toLowerCase() === usdTokenAddress.toLowerCase()) {
+            setInvoiceTokenSymbol('USDT');
+          } else if (paymentToken.toLowerCase() === eurTokenAddress.toLowerCase()) {
+            setInvoiceTokenSymbol('EURT');
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error loading invoice info:', err);
+      // No mostrar error, simplemente no establecer el token
+    }
+  };
 
   if (errors.length > 0) {
     return (
@@ -108,6 +166,8 @@ export default function Home() {
               onAddressChange={setWalletAddress}
               onBalanceChange={setBalance}
               onTokenTypeChange={setTokenType}
+              invoiceTokenSymbol={invoiceTokenSymbol}
+              invoiceTokenAddress={invoiceTokenAddress}
             />
           </div>
 

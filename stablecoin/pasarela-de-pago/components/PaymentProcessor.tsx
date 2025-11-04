@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { getTokenAllowance } from '@/lib/ethers';
+import { getEcommerceContract, getERC20Contract, Invoice } from '@/lib/contracts';
 
 interface PaymentProcessorProps {
   walletAddress: string | null;
@@ -28,6 +29,10 @@ export default function PaymentProcessor({
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [allowance, setAllowance] = useState<string>('0.00');
+  const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [invoiceTokenSymbol, setInvoiceTokenSymbol] = useState<string>('USDT');
+  const [invoiceTokenDecimals, setInvoiceTokenDecimals] = useState<number>(6);
+  const [loadingInvoice, setLoadingInvoice] = useState(true);
 
   const usdTokenAddress = typeof window !== 'undefined' 
     ? (process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS || '')
@@ -39,19 +44,91 @@ export default function PaymentProcessor({
     ? (process.env.NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS || '')
     : '';
 
-  // El contrato solo acepta USDT, así que siempre usamos USDT para el pago
-  const paymentTokenAddress = usdTokenAddress;
+  // Cargar invoice para obtener el paymentToken
+  useEffect(() => {
+    if (ecommerceAddress && invoiceId) {
+      loadInvoice();
+    }
+  }, [ecommerceAddress, invoiceId]);
+
+  // Determinar paymentTokenAddress desde la invoice (o usar USDT por defecto)
+  const paymentTokenAddress = invoice?.paymentToken && invoice.paymentToken !== '0x0000000000000000000000000000000000000000'
+    ? invoice.paymentToken
+    : usdTokenAddress;
 
   useEffect(() => {
-    if (walletAddress && paymentTokenAddress && ecommerceAddress) {
+    if (walletAddress && paymentTokenAddress && ecommerceAddress && invoice) {
+      loadTokenInfo();
       checkAllowance();
     }
-  }, [walletAddress, paymentTokenAddress, ecommerceAddress]);
+  }, [walletAddress, paymentTokenAddress, ecommerceAddress, invoice]);
+
+  const loadInvoice = async () => {
+    if (!window.ethereum || !ecommerceAddress) return;
+
+    setLoadingInvoice(true);
+    setError(null);
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const ecommerceContract = await getEcommerceContract(provider, ecommerceAddress);
+      
+      const invoiceIdNum = parseInt(invoiceId);
+      if (isNaN(invoiceIdNum)) {
+        throw new Error('ID de factura inválido');
+      }
+
+      const invoiceData = await ecommerceContract.getInvoice(invoiceIdNum);
+      
+      // Convertir a formato Invoice
+      const invoiceObj: Invoice = {
+        invoiceId: BigInt(invoiceData.invoiceId.toString()),
+        companyId: BigInt(invoiceData.companyId.toString()),
+        customerAddress: invoiceData.customerAddress,
+        totalAmount: BigInt(invoiceData.totalAmount.toString()),
+        timestamp: BigInt(invoiceData.timestamp.toString()),
+        isPaid: invoiceData.isPaid,
+        paymentTxHash: invoiceData.paymentTxHash,
+        itemCount: BigInt(invoiceData.itemCount.toString()),
+        paymentToken: invoiceData.paymentToken || '0x0000000000000000000000000000000000000000',
+        expectedTotalUSDT: BigInt(invoiceData.expectedTotalUSDT?.toString() || '0'),
+      };
+
+      setInvoice(invoiceObj);
+    } catch (err: any) {
+      console.error('Error loading invoice:', err);
+      setError('Error al cargar información de la factura: ' + (err.message || 'Error desconocido'));
+    } finally {
+      setLoadingInvoice(false);
+    }
+  };
+
+  const loadTokenInfo = async () => {
+    if (!window.ethereum || !paymentTokenAddress) return;
+
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const tokenContract = getERC20Contract(provider, paymentTokenAddress);
+      
+      const [symbol, decimals] = await Promise.all([
+        tokenContract.symbol(),
+        tokenContract.decimals(),
+      ]);
+
+      setInvoiceTokenSymbol(symbol);
+      setInvoiceTokenDecimals(Number(decimals));
+    } catch (err) {
+      console.error('Error loading token info:', err);
+      // Usar valores por defecto
+      setInvoiceTokenSymbol('USDT');
+      setInvoiceTokenDecimals(6);
+    }
+  };
 
   const checkAllowance = async () => {
     if (!walletAddress || !paymentTokenAddress || !ecommerceAddress) return;
 
     try {
+      // Usar el token de la invoice, no el seleccionado
       const allowanceValue = await getTokenAllowance(
         paymentTokenAddress,
         walletAddress,
@@ -79,9 +156,10 @@ export default function PaymentProcessor({
       return;
     }
 
-    // Solo permitir aprobar si es USDT (el contrato solo acepta USDT)
-    if (tokenType !== 'USDT') {
-      setError('Solo se puede aprobar USDT. El contrato no acepta EURT aún.');
+    // Validar que el token seleccionado coincide con el token de la invoice
+    const selectedTokenAddress = tokenType === 'USDT' ? usdTokenAddress : eurTokenAddress;
+    if (selectedTokenAddress.toLowerCase() !== paymentTokenAddress.toLowerCase()) {
+      setError(`Esta factura debe pagarse con ${invoiceTokenSymbol}. Por favor, cambia a ${invoiceTokenSymbol} en el selector.`);
       return;
     }
 
@@ -92,17 +170,16 @@ export default function PaymentProcessor({
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       
-      // ABI mínimo para approve
       const tokenAbi = [
         'function approve(address spender, uint256 amount) external returns (bool)',
       ];
       const tokenContract = new ethers.Contract(paymentTokenAddress, tokenAbi, signer);
 
-      // Convertir amount a unidades base (6 decimales)
-      const amountInUnits = ethers.parseUnits(amount.toString(), 6);
+      // Convertir amount a unidades base usando los decimales del token
+      const amountInUnits = ethers.parseUnits(amount.toString(), invoiceTokenDecimals);
 
       // Aprobar una cantidad grande para evitar múltiples aprobaciones
-      const approveAmount = ethers.parseUnits('1000000', 6); // 1M USDT máximo
+      const approveAmount = ethers.parseUnits('1000000', invoiceTokenDecimals);
 
       const tx = await tokenContract.approve(ecommerceAddress, approveAmount);
       await tx.wait();
@@ -175,6 +252,46 @@ export default function PaymentProcessor({
   const amountFloat = parseFloat(amount.toString());
   const hasInsufficientBalance = balanceFloat < amountFloat;
 
+  // Validar que el token seleccionado coincide con el token de la invoice
+  const selectedTokenAddress = tokenType === 'USDT' ? usdTokenAddress : eurTokenAddress;
+  const tokenMismatch = invoice && selectedTokenAddress.toLowerCase() !== paymentTokenAddress.toLowerCase();
+
+  if (loadingInvoice) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
+          <p className="mt-4 text-gray-600">Cargando información de la factura...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!invoice) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <p className="font-semibold">Error al cargar factura</p>
+          <p className="text-sm">{error || 'No se pudo cargar la información de la factura'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (invoice.isPaid) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
+          <p className="font-semibold">Factura ya pagada</p>
+          <p className="text-sm">Esta factura ya fue procesada.</p>
+          {invoice.paymentTxHash && (
+            <p className="text-xs font-mono mt-2 break-all">TX: {invoice.paymentTxHash}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (!walletAddress) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -235,7 +352,7 @@ export default function PaymentProcessor({
             <div className="flex justify-between">
               <span className="text-gray-600">Monto a pagar:</span>
               <span className="font-semibold text-lg">
-                {tokenType === 'EURT' ? '€' : '$'}{amount.toFixed(2)} {tokenType}
+                {invoiceTokenSymbol === 'EURT' ? '€' : '$'}{amount.toFixed(2)} {invoiceTokenSymbol}
               </span>
             </div>
             <div className="flex justify-between">
@@ -252,15 +369,21 @@ export default function PaymentProcessor({
                 {balance} {tokenType}
               </span>
             </div>
+            {tokenMismatch && (
+              <div className="flex justify-between items-center mt-2">
+                <span className="text-xs text-yellow-600">⚠ Token requerido:</span>
+                <span className="text-xs font-semibold text-yellow-600">{invoiceTokenSymbol}</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {tokenType === 'EURT' && (
+        {tokenMismatch && (
           <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded mb-4">
-            <p className="text-sm font-semibold mb-1">⚠️ Nota sobre EURT</p>
+            <p className="text-sm font-semibold mb-1">⚠️ Token incorrecto</p>
             <p className="text-xs">
-              Actualmente el contrato Ecommerce solo acepta pagos en USDT. 
-              Si tienes EURT, necesitarás convertirlo a USDT primero o cambiar a USDT en el selector arriba.
+              Esta factura debe pagarse con {invoiceTokenSymbol}. 
+              Por favor, cambia a {invoiceTokenSymbol} en el selector arriba.
             </p>
           </div>
         )}
@@ -293,11 +416,11 @@ export default function PaymentProcessor({
               ⚠️ Aprobación de Tokens Requerida
             </p>
             <p className="text-sm mb-2">
-              Para realizar el pago, primero necesitas autorizar al contrato Ecommerce a gastar tus tokens USDT. 
+              Para realizar el pago, primero necesitas autorizar al contrato Ecommerce a gastar tus tokens {invoiceTokenSymbol}. 
               Esto es un paso de seguridad estándar en blockchain.
             </p>
             <p className="text-xs text-blue-600 mt-2">
-              Aprobación actual: {allowance} USDT | Necesario: ${amount.toFixed(2)} USDT
+              Aprobación actual: {allowance} {invoiceTokenSymbol} | Necesario: {invoiceTokenSymbol === 'EURT' ? '€' : '$'}{amount.toFixed(2)} {invoiceTokenSymbol}
             </p>
             <p className="text-xs text-blue-600 mt-1 italic">
               Nota: Solo necesitas aprobar una vez. Las próximas compras serán más rápidas.
@@ -321,14 +444,14 @@ export default function PaymentProcessor({
           <div>
             <button
               onClick={handlePay}
-              disabled={loading || tokenType === 'EURT'}
+              disabled={loading || tokenMismatch}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Procesando pago...' : `Pagar ${tokenType === 'EURT' ? '€' : '$'}${amount.toFixed(2)} ${tokenType}`}
+              {loading ? 'Procesando pago...' : `Pagar ${invoiceTokenSymbol === 'EURT' ? '€' : '$'}${amount.toFixed(2)} ${invoiceTokenSymbol}`}
             </button>
-            {tokenType === 'EURT' && (
+            {tokenMismatch && (
               <p className="text-xs text-center text-gray-500 mt-2">
-                Por favor cambia a USDT para procesar el pago
+                Por favor cambia a {invoiceTokenSymbol} para procesar el pago
               </p>
             )}
           </div>
