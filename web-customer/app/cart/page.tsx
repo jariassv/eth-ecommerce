@@ -120,6 +120,22 @@ export default function CartPage() {
     }
   }, [address, isReady]);
 
+  // Recargar tokens cuando cambie la moneda seleccionada o el rate
+  useEffect(() => {
+    if (address && isReady && total > 0n) {
+      // Calcular requiredAmount según la moneda seleccionada
+      if (selectedCurrency === 'EURT' && rate) {
+        // Si es EURT y hay rate, convertir el total a EURT
+        const requiredAmountEURT = convertUSDTtoEURT(total, rate);
+        // Pero loadTokens espera el amount en USDT y el rate, y calcula internamente
+        loadTokens(total, rate);
+      } else {
+        // Para USDT, pasar el total directamente
+        loadTokens(total, rate);
+      }
+    }
+  }, [selectedCurrency, rate, total, address, isReady, loadTokens]);
+
   const loadCart = async () => {
     if (!isReady || !address) {
       setLoadingCart(false);
@@ -149,8 +165,7 @@ export default function CartPage() {
       const cartTotal = await getCartTotal();
       setTotal(cartTotal);
       
-      // Recargar tokens con el total requerido
-      await loadTokens(cartTotal);
+      // Recargar tokens con el total requerido (no recargar aquí, se recargará cuando cambie la moneda)
     } catch (err: any) {
       console.error('Error loading cart:', err);
       setError(err.message || 'Error al cargar carrito');
@@ -168,22 +183,25 @@ export default function CartPage() {
       return;
     }
 
-    // Obtener token seleccionado
+    // Recalcular requiredAmount y recargar tokens para asegurar validación correcta
+    let requiredAmount = total; // Por defecto USDT
+    if (selectedCurrency === 'EURT' && rate) {
+      requiredAmount = convertUSDTtoEURT(total, rate);
+    }
+    
+    // Recargar tokens con el amount correcto antes de validar
+    await loadTokens(total, rate);
+    
+    // Obtener token seleccionado después de recargar
     const selectedToken = getSelectedToken();
     if (!selectedToken) {
       setError('No se pudo obtener información del token seleccionado');
       return;
     }
 
-    // Calcular amount requerido en la moneda seleccionada
-    let requiredAmount = total; // Por defecto USDT
-    if (selectedCurrency === 'EURT' && rate) {
-      requiredAmount = convertUSDTtoEURT(total, rate);
-    }
-
-    // Validar balance
-    if (!selectedToken.hasSufficientBalance || selectedToken.balance < requiredAmount) {
-      setError(`Saldo insuficiente. Necesitas ${formatTokenAmount(requiredAmount, selectedToken.decimals)} ${selectedToken.symbol} pero tienes ${selectedToken.balanceFormatted} ${selectedToken.symbol}`);
+    // Validar balance - comparar directamente los bigints
+    if (selectedToken.balance < requiredAmount) {
+      setError(`Saldo insuficiente. Necesitas ${formatTokenAmount(requiredAmount, selectedToken.decimals)} ${selectedCurrency} pero tienes ${selectedToken.balanceFormatted} ${selectedCurrency}`);
       return;
     }
 
@@ -192,9 +210,8 @@ export default function CartPage() {
       setApproving(true);
       setError(null);
       try {
-        await approveToken(selectedCurrency, requiredAmount);
-        // Recargar tokens después de aprobar
-        await loadTokens(total);
+        await approveToken(selectedCurrency, requiredAmount, total, rate);
+        // Los tokens ya se recargan en approveToken
       } catch (err: any) {
         setError(err.message || 'Error al aprobar token');
         setApproving(false);
@@ -215,6 +232,10 @@ export default function CartPage() {
 
       const companyId = firstProduct.companyId;
 
+      // Obtener información de la empresa para obtener su dirección (merchant address)
+      const company = await getCompany(companyId);
+      const merchantAddress = company.companyAddress;
+
       // Obtener dirección del token de pago
       const paymentTokenAddress = selectedCurrency === 'USDT' ? USD_TOKEN_ADDRESS : EUR_TOKEN_ADDRESS;
       if (!paymentTokenAddress) {
@@ -234,10 +255,11 @@ export default function CartPage() {
       await clearCart();
 
       // Redirigir a pasarela de pago
+      // IMPORTANTE: merchant_address es la dirección de la empresa, NO la del token
       const paymentGatewayUrl = process.env.NEXT_PUBLIC_PAYMENT_GATEWAY_URL || 'http://localhost:6002';
       const amount = formatTokenAmount(totalAmount, selectedToken.decimals);
       
-      const redirectUrl = `${paymentGatewayUrl}/?merchant_address=${paymentTokenAddress}&amount=${amount}&invoice=${invoiceId}&redirect=${encodeURIComponent(window.location.origin + '/orders')}`;
+      const redirectUrl = `${paymentGatewayUrl}/?merchant_address=${merchantAddress}&amount=${amount}&invoice=${invoiceId}&redirect=${encodeURIComponent(window.location.origin + '/orders')}`;
       
       window.location.href = redirectUrl;
     } catch (err: any) {
@@ -337,7 +359,15 @@ export default function CartPage() {
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Seleccionar Moneda de Pago</h3>
                   <CurrencySelector
                     selectedCurrency={selectedCurrency}
-                    onCurrencyChange={setSelectedCurrency}
+                    onCurrencyChange={(currency) => {
+                      setSelectedCurrency(currency);
+                      // Recargar tokens cuando cambie la moneda
+                      if (currency === 'EURT' && rate) {
+                        loadTokens(total, rate);
+                      } else {
+                        loadTokens(total, rate);
+                      }
+                    }}
                     requiredAmount={selectedCurrency === 'EURT' && rate ? convertUSDTtoEURT(total, rate) : total}
                     showBalance={true}
                   />

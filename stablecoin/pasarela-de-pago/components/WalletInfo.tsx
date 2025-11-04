@@ -59,10 +59,10 @@ export default function WalletInfo({
   }, []);
 
   useEffect(() => {
-    if (address && usdTokenAddress) {
+    if (address) {
       loadBalance();
     }
-  }, [address, usdTokenAddress]);
+  }, [address, invoiceTokenAddress, tokenType, usdTokenAddress, eurTokenAddress]);
 
   useEffect(() => {
     onAddressChange(address);
@@ -115,15 +115,43 @@ export default function WalletInfo({
     }
   };
   
-  // Actualizar tokenType cuando cambie invoiceTokenSymbol
+  // Actualizar tokenType cuando cambie invoiceTokenSymbol o invoiceTokenAddress
   useEffect(() => {
     if (invoiceTokenSymbol) {
       const newTokenType = invoiceTokenSymbol === 'EURT' ? 'EURT' : 'USDT';
       if (newTokenType !== tokenType) {
         setTokenType(newTokenType);
+        // Recargar balance cuando cambie el tokenType
+        if (address) {
+          loadBalance();
+        }
+      }
+    } else if (invoiceTokenAddress) {
+      // Si tenemos la dirección pero no el símbolo, intentar determinar por dirección
+      const usdTokenAddress = typeof window !== 'undefined'
+        ? (process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS || '')
+        : '';
+      const eurTokenAddress = typeof window !== 'undefined'
+        ? (process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '')
+        : '';
+      
+      if (invoiceTokenAddress.toLowerCase() === eurTokenAddress.toLowerCase()) {
+        if (tokenType !== 'EURT') {
+          setTokenType('EURT');
+          if (address) {
+            loadBalance();
+          }
+        }
+      } else if (invoiceTokenAddress.toLowerCase() === usdTokenAddress.toLowerCase()) {
+        if (tokenType !== 'USDT') {
+          setTokenType('USDT');
+          if (address) {
+            loadBalance();
+          }
+        }
       }
     }
-  }, [invoiceTokenSymbol]);
+  }, [invoiceTokenSymbol, invoiceTokenAddress, tokenType, address]);
 
   useEffect(() => {
     if (onTokenTypeChange) {
@@ -135,7 +163,7 @@ export default function WalletInfo({
     if (address) {
       loadBalance();
     }
-  }, [tokenType, address]);
+  }, [tokenType, address, invoiceTokenAddress]);
 
   const handleConnect = async () => {
     setLoading(true);

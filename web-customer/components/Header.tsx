@@ -5,6 +5,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { formatTokenAmount } from '@/lib/ethers';
 import { useState, useEffect } from 'react';
 import { useEcommerce } from '@/hooks/useEcommerce';
+import { useTokens, SupportedCurrency } from '@/hooks/useTokens';
 
 const USD_TOKEN_ADDRESS = typeof window !== 'undefined'
   ? (process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS || '')
@@ -13,15 +14,25 @@ const USD_TOKEN_ADDRESS = typeof window !== 'undefined'
 export default function Header() {
   const { provider, address, isConnected, connect, disconnect } = useWallet();
   const { getCart, isReady } = useEcommerce(provider, address);
-  const [balance, setBalance] = useState<string>('0.00');
+  const { tokens, getSelectedToken, selectedCurrency, setSelectedCurrency } = useTokens(provider, address);
   const [cartCount, setCartCount] = useState<number>(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showCurrencySelector, setShowCurrencySelector] = useState(false);
 
+  // Cerrar selector cuando se hace clic fuera
   useEffect(() => {
-    if (isConnected && address && USD_TOKEN_ADDRESS) {
-      loadBalance();
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (showCurrencySelector && !target.closest('.currency-selector-container')) {
+        setShowCurrencySelector(false);
+      }
+    };
+
+    if (showCurrencySelector) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [isConnected, address]);
+  }, [showCurrencySelector]);
 
   useEffect(() => {
     if (isConnected && address && isReady) {
@@ -32,32 +43,6 @@ export default function Header() {
       setCartCount(0);
     }
   }, [isConnected, address, isReady]);
-
-  const loadBalance = async () => {
-    try {
-      const response = await fetch('/api/rpc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'eth_call',
-          params: [{
-            to: USD_TOKEN_ADDRESS,
-            data: '0x70a08231' + address.slice(2).padStart(64, '0'),
-          }, 'latest'],
-          id: 1,
-        }),
-      });
-      const data = await response.json();
-      if (data.result) {
-        const balanceBigInt = BigInt(data.result);
-        const formatted = formatTokenAmount(balanceBigInt, 6);
-        setBalance(parseFloat(formatted).toFixed(2));
-      }
-    } catch (err) {
-      console.error('Error loading balance:', err);
-    }
-  };
 
   const loadCartCount = async () => {
     try {
@@ -120,12 +105,66 @@ export default function Header() {
           <div className="flex items-center gap-3">
             {isConnected ? (
               <>
-                <div className="hidden lg:flex items-center gap-4 px-4 py-2 bg-gray-50 rounded-lg">
+                <div className="hidden lg:flex items-center gap-4 px-4 py-2 bg-gray-50 rounded-lg relative currency-selector-container">
                   <div className="text-right border-r border-gray-200 pr-4">
                     <p className="text-xs text-gray-500 font-medium">Balance</p>
-                    <p className="text-sm font-bold text-indigo-600">
-                      ${balance} USDT
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setShowCurrencySelector(!showCurrencySelector)}
+                        className="text-sm font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                      >
+                        {(() => {
+                          const token = getSelectedToken();
+                          if (token) {
+                            return `${token.balanceFormatted} ${selectedCurrency}`;
+                          }
+                          return `0.00 ${selectedCurrency}`;
+                        })()}
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+                    {showCurrencySelector && (
+                      <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[120px]">
+                        <button
+                          onClick={() => {
+                            setSelectedCurrency('USDT');
+                            setShowCurrencySelector(false);
+                          }}
+                          className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 rounded-t-lg ${
+                            selectedCurrency === 'USDT' ? 'bg-indigo-50 text-indigo-600 font-semibold' : 'text-gray-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>USDT</span>
+                            {selectedCurrency === 'USDT' && (
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedCurrency('EURT');
+                            setShowCurrencySelector(false);
+                          }}
+                          className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 rounded-b-lg ${
+                            selectedCurrency === 'EURT' ? 'bg-indigo-50 text-indigo-600 font-semibold' : 'text-gray-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>EURT</span>
+                            {selectedCurrency === 'EURT' && (
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-gray-500 font-medium">Wallet</p>
@@ -152,7 +191,10 @@ export default function Header() {
 
             {/* Mobile Menu Button */}
             <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              onClick={() => {
+                setMobileMenuOpen(!mobileMenuOpen);
+                setShowCurrencySelector(false);
+              }}
               className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -172,28 +214,96 @@ export default function Header() {
             <Link
               href="/"
               className="block px-4 py-2 rounded-lg text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setShowCurrencySelector(false);
+              }}
             >
               Productos
             </Link>
             <Link
               href="/cart"
               className="block px-4 py-2 rounded-lg text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors relative"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setShowCurrencySelector(false);
+              }}
             >
               Carrito {cartCount > 0 && `(${cartCount})`}
             </Link>
             <Link
               href="/orders"
               className="block px-4 py-2 rounded-lg text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setShowCurrencySelector(false);
+              }}
             >
               Mis Pedidos
             </Link>
             {isConnected && (
-              <div className="px-4 py-2 space-y-2">
+              <div className="px-4 py-2 space-y-2 currency-selector-container">
                 <div className="text-sm">
-                  <p className="text-gray-500">Balance: <span className="font-semibold text-indigo-600">${balance} USDT</span></p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-gray-500">Balance:</p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setShowCurrencySelector(!showCurrencySelector)}
+                        className="text-indigo-600 font-semibold flex items-center gap-1"
+                      >
+                        {(() => {
+                          const token = getSelectedToken();
+                          if (token) {
+                            return `${token.balanceFormatted} ${selectedCurrency}`;
+                          }
+                          return `0.00 ${selectedCurrency}`;
+                        })()}
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  {showCurrencySelector && (
+                    <div className="bg-white border border-gray-200 rounded-lg shadow-lg mt-2 mb-2">
+                      <button
+                        onClick={() => {
+                          setSelectedCurrency('USDT');
+                          setShowCurrencySelector(false);
+                        }}
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 rounded-t-lg ${
+                          selectedCurrency === 'USDT' ? 'bg-indigo-50 text-indigo-600 font-semibold' : 'text-gray-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span>USDT</span>
+                          {selectedCurrency === 'USDT' && (
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedCurrency('EURT');
+                          setShowCurrencySelector(false);
+                        }}
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 rounded-b-lg ${
+                          selectedCurrency === 'EURT' ? 'bg-indigo-50 text-indigo-600 font-semibold' : 'text-gray-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span>EURT</span>
+                          {selectedCurrency === 'EURT' && (
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                      </button>
+                    </div>
+                  )}
                   <p className="text-gray-500 font-mono text-xs mt-1">{address}</p>
                 </div>
               </div>

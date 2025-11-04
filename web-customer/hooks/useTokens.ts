@@ -48,11 +48,42 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
     }
   }, []);
 
-  // Guardar moneda seleccionada en localStorage
+  // Guardar moneda seleccionada en localStorage y disparar evento
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('selectedCurrency', selectedCurrency);
+      // Disparar evento personalizado para que otros componentes se actualicen
+      window.dispatchEvent(new CustomEvent('currencyChanged', { detail: selectedCurrency }));
     }
+  }, [selectedCurrency]);
+
+  // Escuchar cambios en localStorage desde otras pestañas o componentes
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'selectedCurrency' && e.newValue) {
+        const newCurrency = e.newValue as SupportedCurrency;
+        if ((newCurrency === 'USDT' || newCurrency === 'EURT') && newCurrency !== selectedCurrency) {
+          setSelectedCurrency(newCurrency);
+        }
+      }
+    };
+
+    const handleCurrencyChange = (e: CustomEvent) => {
+      const newCurrency = e.detail as SupportedCurrency;
+      if (newCurrency !== selectedCurrency) {
+        setSelectedCurrency(newCurrency);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('currencyChanged', handleCurrencyChange as EventListener);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('currencyChanged', handleCurrencyChange as EventListener);
+    };
   }, [selectedCurrency]);
 
   const loadTokenInfo = useCallback(async (tokenAddress: string, currency: SupportedCurrency): Promise<TokenInfo> => {
@@ -88,7 +119,7 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
     };
   }, [provider, address]);
 
-  const loadTokens = useCallback(async (requiredAmount?: bigint) => {
+  const loadTokens = useCallback(async (requiredAmountUSDT?: bigint, rate?: number) => {
     if (!provider || !address) {
       setTokens(new Map());
       return;
@@ -104,9 +135,10 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
       if (USD_TOKEN_ADDRESS) {
         try {
           const usdtInfo = await loadTokenInfo(USD_TOKEN_ADDRESS, 'USDT');
-          if (requiredAmount !== undefined) {
-            usdtInfo.hasSufficientBalance = usdtInfo.balance >= requiredAmount;
-            usdtInfo.needsApproval = usdtInfo.allowance < requiredAmount;
+          if (requiredAmountUSDT !== undefined) {
+            // Para USDT, el requiredAmount es directamente en USDT
+            usdtInfo.hasSufficientBalance = usdtInfo.balance >= requiredAmountUSDT;
+            usdtInfo.needsApproval = usdtInfo.allowance < requiredAmountUSDT;
           }
           tokensMap.set('USDT', usdtInfo);
         } catch (err) {
@@ -118,9 +150,17 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
       if (EUR_TOKEN_ADDRESS) {
         try {
           const eurtInfo = await loadTokenInfo(EUR_TOKEN_ADDRESS, 'EURT');
-          if (requiredAmount !== undefined) {
-            eurtInfo.hasSufficientBalance = eurtInfo.balance >= requiredAmount;
-            eurtInfo.needsApproval = eurtInfo.allowance < requiredAmount;
+          if (requiredAmountUSDT !== undefined && rate) {
+            // Para EURT, necesitamos convertir el requiredAmount de USDT a EURT
+            // Importar función de conversión
+            const { convertUSDTtoEURT } = await import('@/lib/exchangeRate');
+            const requiredAmountEURT = convertUSDTtoEURT(requiredAmountUSDT, rate);
+            eurtInfo.hasSufficientBalance = eurtInfo.balance >= requiredAmountEURT;
+            eurtInfo.needsApproval = eurtInfo.allowance < requiredAmountEURT;
+          } else if (requiredAmountUSDT !== undefined) {
+            // Si no hay rate, no podemos validar EURT
+            eurtInfo.hasSufficientBalance = false;
+            eurtInfo.needsApproval = false;
           }
           tokensMap.set('EURT', eurtInfo);
         } catch (err) {
@@ -137,7 +177,7 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
     }
   }, [provider, address, loadTokenInfo]);
 
-  const approveToken = useCallback(async (currency: SupportedCurrency, amount: bigint): Promise<string> => {
+  const approveToken = useCallback(async (currency: SupportedCurrency, amount: bigint, requiredAmountUSDT?: bigint, rate?: number): Promise<string> => {
     if (!provider || !address) {
       throw new Error('Wallet no conectada');
     }
@@ -156,8 +196,12 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
       const tx = await tokenContract.approve(ECOMMERCE_ADDRESS, amount);
       const receipt = await tx.wait();
       
-      // Recargar tokens después de aprobar
-      await loadTokens();
+      // Recargar tokens después de aprobar con los mismos parámetros
+      if (requiredAmountUSDT !== undefined) {
+        await loadTokens(requiredAmountUSDT, rate);
+      } else {
+        await loadTokens();
+      }
       
       return receipt.hash;
     } catch (err: any) {

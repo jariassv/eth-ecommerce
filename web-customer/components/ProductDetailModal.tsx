@@ -5,8 +5,10 @@ import { Product } from '@/lib/contracts';
 import { formatTokenAmount } from '@/lib/ethers';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { useWallet } from '@/hooks/useWallet';
+import { useTokens } from '@/hooks/useTokens';
 import { getIPFSImageUrl, getNextIPFSGateway } from '@/lib/ipfs';
 import ProductReviews from './ProductReviews';
+import PriceConverter from './PriceConverter';
 
 interface ProductDetailModalProps {
   product: Product;
@@ -23,6 +25,7 @@ export default function ProductDetailModal({
 }: ProductDetailModalProps) {
   const { provider, address } = useWallet();
   const { addToCart, loading } = useEcommerce(provider, address);
+  const { selectedCurrency } = useTokens(provider, address);
   const [quantity, setQuantity] = useState<number>(1);
   const [adding, setAdding] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -254,9 +257,12 @@ export default function ProductDetailModal({
             <div className="space-y-6">
               {/* Precio y Stock */}
               <div>
-                <p className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
-                  ${price}
-                </p>
+                <PriceConverter
+                  amount={product.price}
+                  fromCurrency={selectedCurrency}
+                  showEquivalent={true}
+                  decimals={6}
+                />
                 <div className="flex items-center gap-3">
                   {hasStock ? (
                     <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-semibold rounded-full">
@@ -328,7 +334,14 @@ export default function ProductDetailModal({
                       </button>
                     </div>
                     <span className="text-sm text-gray-500">
-                      Total: <span className="font-semibold text-gray-900">${formatTokenAmount(product.price * BigInt(quantity), 6)}</span>
+                      Total: <span className="font-semibold text-gray-900">
+                        <PriceConverter
+                          amount={product.price * BigInt(quantity)}
+                          fromCurrency={selectedCurrency}
+                          showEquivalent={false}
+                          decimals={6}
+                        />
+                      </span>
                     </span>
                   </div>
 

@@ -13,6 +13,8 @@ interface PaymentProcessorProps {
   merchantAddress: string;
   redirectUrl: string | null;
   tokenType: 'USDT' | 'EURT';
+  invoiceTokenSymbol?: string; // Token requerido por la invoice (desde el padre)
+  invoiceTokenAddress?: string; // Dirección del token requerido (desde el padre)
 }
 
 export default function PaymentProcessor({
@@ -23,6 +25,8 @@ export default function PaymentProcessor({
   merchantAddress,
   redirectUrl,
   tokenType,
+  invoiceTokenSymbol: propInvoiceTokenSymbol,
+  invoiceTokenAddress: propInvoiceTokenAddress,
 }: PaymentProcessorProps) {
   const [step, setStep] = useState<'check' | 'approve' | 'pay' | 'success'>('check');
   const [loading, setLoading] = useState(false);
@@ -30,9 +34,10 @@ export default function PaymentProcessor({
   const [txHash, setTxHash] = useState<string | null>(null);
   const [allowance, setAllowance] = useState<string>('0.00');
   const [invoice, setInvoice] = useState<Invoice | null>(null);
-  const [invoiceTokenSymbol, setInvoiceTokenSymbol] = useState<string>('USDT');
+  // Usar props si están disponibles, sino usar estado interno
+  const [invoiceTokenSymbol, setInvoiceTokenSymbol] = useState<string>(propInvoiceTokenSymbol || 'USDT');
   const [invoiceTokenDecimals, setInvoiceTokenDecimals] = useState<number>(6);
-  const [loadingInvoice, setLoadingInvoice] = useState(true);
+  const [loadingInvoice, setLoadingInvoice] = useState(!propInvoiceTokenSymbol);
 
   const usdTokenAddress = typeof window !== 'undefined' 
     ? (process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS || '')
@@ -44,24 +49,38 @@ export default function PaymentProcessor({
     ? (process.env.NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS || '')
     : '';
 
-  // Cargar invoice para obtener el paymentToken
+  // Actualizar invoiceTokenSymbol cuando cambie el prop
   useEffect(() => {
-    if (ecommerceAddress && invoiceId) {
+    if (propInvoiceTokenSymbol) {
+      setInvoiceTokenSymbol(propInvoiceTokenSymbol);
+      setLoadingInvoice(false);
+    }
+  }, [propInvoiceTokenSymbol]);
+
+  // Cargar invoice para obtener el paymentToken (solo si no se pasó como prop)
+  useEffect(() => {
+    if (ecommerceAddress && invoiceId && !propInvoiceTokenSymbol) {
       loadInvoice();
     }
-  }, [ecommerceAddress, invoiceId]);
+  }, [ecommerceAddress, invoiceId, propInvoiceTokenSymbol]);
 
-  // Determinar paymentTokenAddress desde la invoice (o usar USDT por defecto)
-  const paymentTokenAddress = invoice?.paymentToken && invoice.paymentToken !== '0x0000000000000000000000000000000000000000'
-    ? invoice.paymentToken
-    : usdTokenAddress;
+  // Determinar paymentTokenAddress desde props, invoice, o usar USDT por defecto
+  const paymentTokenAddress = propInvoiceTokenAddress 
+    ? propInvoiceTokenAddress
+    : (invoice?.paymentToken && invoice.paymentToken !== '0x0000000000000000000000000000000000000000'
+      ? invoice.paymentToken
+      : usdTokenAddress);
 
   useEffect(() => {
-    if (walletAddress && paymentTokenAddress && ecommerceAddress && invoice) {
+    // Si tenemos paymentTokenAddress (ya sea de props o de invoice), podemos cargar la info
+    if (walletAddress && paymentTokenAddress && ecommerceAddress) {
       loadTokenInfo();
-      checkAllowance();
+      // Solo verificar allowance si tenemos invoice o si tenemos el token desde props
+      if (invoice || propInvoiceTokenAddress) {
+        checkAllowance();
+      }
     }
-  }, [walletAddress, paymentTokenAddress, ecommerceAddress, invoice]);
+  }, [walletAddress, paymentTokenAddress, ecommerceAddress, invoice, propInvoiceTokenAddress]);
 
   const loadInvoice = async () => {
     if (!window.ethereum || !ecommerceAddress) return;
