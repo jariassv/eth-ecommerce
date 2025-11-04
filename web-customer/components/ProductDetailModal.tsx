@@ -334,7 +334,14 @@ export default function ProductDetailModal({
                       </button>
                     </div>
                     <span className="text-sm text-gray-500">
-                      Total: <span className="font-semibold text-gray-900">${formatTokenAmount(product.price * BigInt(quantity), 6)}</span>
+                      Total: <span className="font-semibold text-gray-900">
+                        <PriceConverter
+                          amount={product.price * BigInt(quantity)}
+                          fromCurrency={selectedCurrency}
+                          showEquivalent={false}
+                          decimals={6}
+                        />
+                      </span>
                     </span>
                   </div>
 
