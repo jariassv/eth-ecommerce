@@ -63,8 +63,8 @@ export default function CurrencySelector({
               <div className="text-sm text-gray-600">
                 <p>Balance: <span className="font-semibold">{usdtToken.balanceFormatted}</span></p>
                 {requiredAmount !== undefined && (
-                  <p className={`mt-1 ${usdtToken.hasSufficientBalance ? 'text-green-600' : 'text-red-600'}`}>
-                    {usdtToken.hasSufficientBalance ? '✓ Saldo suficiente' : '✗ Saldo insuficiente'}
+                  <p className={`mt-1 ${usdtToken.balance >= requiredAmount ? 'text-green-600' : 'text-red-600'}`}>
+                    {usdtToken.balance >= requiredAmount ? '✓ Saldo suficiente' : '✗ Saldo insuficiente'}
                   </p>
                 )}
               </div>
@@ -93,8 +93,8 @@ export default function CurrencySelector({
               <div className="text-sm text-gray-600">
                 <p>Balance: <span className="font-semibold">{eurtToken.balanceFormatted}</span></p>
                 {requiredAmount !== undefined && (
-                  <p className={`mt-1 ${eurtToken.hasSufficientBalance ? 'text-green-600' : 'text-red-600'}`}>
-                    {eurtToken.hasSufficientBalance ? '✓ Saldo suficiente' : '✗ Saldo insuficiente'}
+                  <p className={`mt-1 ${eurtToken.balance >= requiredAmount ? 'text-green-600' : 'text-red-600'}`}>
+                    {eurtToken.balance >= requiredAmount ? '✓ Saldo suficiente' : '✗ Saldo insuficiente'}
                   </p>
                 )}
               </div>
@@ -106,21 +106,31 @@ export default function CurrencySelector({
       {/* Warnings */}
       {selectedToken && requiredAmount !== undefined && (
         <div className="space-y-2">
-          {!selectedToken.hasSufficientBalance && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-800">
-                <strong>Saldo insuficiente:</strong> Necesitas {formatTokenAmount(requiredAmount, selectedToken.decimals)} {selectedCurrency} 
-                pero tienes {selectedToken.balanceFormatted} {selectedCurrency}
-              </p>
-            </div>
-          )}
-          {selectedToken.needsApproval && selectedToken.hasSufficientBalance && (
-            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">
-                <strong>Aprobación necesaria:</strong> Necesitas aprobar el contrato para gastar {selectedCurrency}
-              </p>
-            </div>
-          )}
+          {(() => {
+            // Calcular directamente si hay suficiente balance
+            const hasSufficientBalance = selectedToken.balance >= requiredAmount;
+            const needsApproval = selectedToken.allowance < requiredAmount;
+            
+            return (
+              <>
+                {!hasSufficientBalance && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-800">
+                      <strong>Saldo insuficiente:</strong> Necesitas {formatTokenAmount(requiredAmount, selectedToken.decimals)} {selectedCurrency} 
+                      pero tienes {selectedToken.balanceFormatted} {selectedCurrency}
+                    </p>
+                  </div>
+                )}
+                {needsApproval && hasSufficientBalance && (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Aprobación necesaria:</strong> Necesitas aprobar el contrato para gastar {selectedCurrency}
+                    </p>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
     </div>
