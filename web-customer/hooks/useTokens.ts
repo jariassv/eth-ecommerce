@@ -48,11 +48,42 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
     }
   }, []);
 
-  // Guardar moneda seleccionada en localStorage
+  // Guardar moneda seleccionada en localStorage y disparar evento
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('selectedCurrency', selectedCurrency);
+      // Disparar evento personalizado para que otros componentes se actualicen
+      window.dispatchEvent(new CustomEvent('currencyChanged', { detail: selectedCurrency }));
     }
+  }, [selectedCurrency]);
+
+  // Escuchar cambios en localStorage desde otras pestañas o componentes
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'selectedCurrency' && e.newValue) {
+        const newCurrency = e.newValue as SupportedCurrency;
+        if ((newCurrency === 'USDT' || newCurrency === 'EURT') && newCurrency !== selectedCurrency) {
+          setSelectedCurrency(newCurrency);
+        }
+      }
+    };
+
+    const handleCurrencyChange = (e: CustomEvent) => {
+      const newCurrency = e.detail as SupportedCurrency;
+      if (newCurrency !== selectedCurrency) {
+        setSelectedCurrency(newCurrency);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('currencyChanged', handleCurrencyChange as EventListener);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('currencyChanged', handleCurrencyChange as EventListener);
+    };
   }, [selectedCurrency]);
 
   const loadTokenInfo = useCallback(async (tokenAddress: string, currency: SupportedCurrency): Promise<TokenInfo> => {
