@@ -32,21 +32,22 @@ interface TokenInfo {
   needsApproval: boolean;
 }
 
+// Función helper para obtener la moneda inicial desde localStorage
+function getInitialCurrency(): SupportedCurrency {
+  if (typeof window === 'undefined') return 'USDT';
+  const saved = localStorage.getItem('selectedCurrency') as SupportedCurrency | null;
+  if (saved && (saved === 'USDT' || saved === 'EURT')) {
+    return saved;
+  }
+  return 'USDT';
+}
+
 export function useTokens(provider: ethers.BrowserProvider | null, address: string | null) {
   const [tokens, setTokens] = useState<Map<SupportedCurrency, TokenInfo>>(new Map());
-  const [selectedCurrency, setSelectedCurrency] = useState<SupportedCurrency>('USDT');
+  // Inicializar desde localStorage de forma síncrona
+  const [selectedCurrency, setSelectedCurrency] = useState<SupportedCurrency>(getInitialCurrency());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Cargar moneda seleccionada desde localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('selectedCurrency') as SupportedCurrency | null;
-      if (saved && (saved === 'USDT' || saved === 'EURT')) {
-        setSelectedCurrency(saved);
-      }
-    }
-  }, []);
 
   // Guardar moneda seleccionada en localStorage y disparar evento
   useEffect(() => {
