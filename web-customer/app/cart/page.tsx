@@ -183,21 +183,24 @@ export default function CartPage() {
       return;
     }
 
-    // Obtener token seleccionado
+    // Recalcular requiredAmount y recargar tokens para asegurar validación correcta
+    let requiredAmount = total; // Por defecto USDT
+    if (selectedCurrency === 'EURT' && rate) {
+      requiredAmount = convertUSDTtoEURT(total, rate);
+    }
+    
+    // Recargar tokens con el amount correcto antes de validar
+    await loadTokens(total, rate);
+    
+    // Obtener token seleccionado después de recargar
     const selectedToken = getSelectedToken();
     if (!selectedToken) {
       setError('No se pudo obtener información del token seleccionado');
       return;
     }
 
-    // Calcular amount requerido en la moneda seleccionada
-    let requiredAmount = total; // Por defecto USDT
-    if (selectedCurrency === 'EURT' && rate) {
-      requiredAmount = convertUSDTtoEURT(total, rate);
-    }
-
-    // Validar balance
-    if (!selectedToken.hasSufficientBalance || selectedToken.balance < requiredAmount) {
+    // Validar balance - comparar directamente los bigints
+    if (selectedToken.balance < requiredAmount) {
       setError(`Saldo insuficiente. Necesitas ${formatTokenAmount(requiredAmount, selectedToken.decimals)} ${selectedCurrency} pero tienes ${selectedToken.balanceFormatted} ${selectedCurrency}`);
       return;
     }
