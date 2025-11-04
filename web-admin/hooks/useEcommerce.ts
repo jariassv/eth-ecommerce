@@ -36,8 +36,15 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    if (!ECOMMERCE_ADDRESS) {
-      setError('Dirección del contrato Ecommerce no configurada');
+    if (!ECOMMERCE_ADDRESS || ECOMMERCE_ADDRESS === '') {
+      setError('Dirección del contrato Ecommerce no configurada. Verifica NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS en .env.local');
+      setIsInitializing(false);
+      return;
+    }
+
+    // Validar que la dirección sea válida
+    if (!ethers.isAddress(ECOMMERCE_ADDRESS)) {
+      setError(`Dirección del contrato Ecommerce inválida: ${ECOMMERCE_ADDRESS}`);
       setIsInitializing(false);
       return;
     }
@@ -46,6 +53,12 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     const initContracts = async () => {
       try {
         const contractProvider = getOrCreateProvider(provider);
+        
+        // Verificar que el contrato existe en la dirección antes de crear la instancia
+        const code = await contractProvider.getCode(ECOMMERCE_ADDRESS);
+        if (!code || code === '0x') {
+          throw new Error(`No hay contrato desplegado en la dirección ${ECOMMERCE_ADDRESS}. Ejecuta restart-all.sh para desplegar los contratos.`);
+        }
         
         const contractInstance = new ethers.Contract(
           ECOMMERCE_ADDRESS,
@@ -65,7 +78,8 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
         setError(null);
       } catch (err) {
         console.error('Error initializing contracts:', err);
-        setError('Error al inicializar contratos: ' + (err instanceof Error ? err.message : 'Error desconocido'));
+        const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+        setError(`Error al inicializar contratos: ${errorMessage}`);
       } finally {
         setIsInitializing(false);
       }
@@ -79,11 +93,23 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
   const getOwner = useCallback(async (): Promise<string> => {
     if (!contract) throw new Error('Contrato no inicializado');
     
+    if (!ECOMMERCE_ADDRESS || ECOMMERCE_ADDRESS === '') {
+      throw new Error('Dirección del contrato Ecommerce no configurada');
+    }
+    
     try {
+      // Verificar que el contrato tiene código (está desplegado)
+      const code = await contract.runner?.provider?.getCode(ECOMMERCE_ADDRESS);
+      if (!code || code === '0x') {
+        throw new Error('No hay contrato desplegado en la dirección configurada');
+      }
+      
       const owner = await contract.owner();
       return owner;
     } catch (err: any) {
-      setError(err.message || 'Error al obtener owner');
+      const errorMessage = err.message || 'Error al obtener owner';
+      console.error('Error en getOwner:', errorMessage, err);
+      setError(errorMessage);
       throw err;
     }
   }, [contract]);
