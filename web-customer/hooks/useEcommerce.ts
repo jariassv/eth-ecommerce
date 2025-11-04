@@ -314,6 +314,59 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     }
   }, [contractWithSigner]);
 
+  const createInvoiceWithCurrency = useCallback(async (
+    companyId: bigint,
+    paymentToken: string,
+    expectedTotalUSDT: bigint
+  ): Promise<{ invoiceId: bigint; totalAmount: bigint }> => {
+    if (!contractWithSigner) throw new Error('Wallet no conectada');
+    
+    setLoading(true);
+    setError(null);
+    try {
+      const tx = await contractWithSigner.createInvoiceWithCurrency(companyId, paymentToken, expectedTotalUSDT);
+      const receipt = await tx.wait();
+      
+      // Buscar el evento InvoiceCreated en los logs
+      const event = receipt.logs.find((log: any) => {
+        try {
+          const parsed = contractWithSigner.interface.parseLog(log);
+          return parsed?.name === 'InvoiceCreated';
+        } catch {
+          return false;
+        }
+      });
+
+      if (event) {
+        const parsed = contractWithSigner.interface.parseLog(event);
+        return {
+          invoiceId: BigInt(parsed?.args[0].toString() || '0'),
+          totalAmount: BigInt(parsed?.args[3].toString() || '0'),
+        };
+      }
+
+      // Fallback: llamar a getMyInvoices y obtener la última
+      const invoices = await contractWithSigner.getMyInvoices();
+      if (invoices.length > 0) {
+        const lastInvoice = invoices[invoices.length - 1];
+        return {
+          invoiceId: BigInt(lastInvoice.invoiceId.toString()),
+          totalAmount: BigInt(lastInvoice.totalAmount.toString()),
+        };
+      }
+
+      throw new Error('No se pudo obtener el ID de la factura creada');
+    } catch (err: any) {
+      if (err.code === 4001) {
+        throw new Error('Transacción rechazada por el usuario');
+      }
+      setError(err.message || 'Error al crear factura');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [contractWithSigner]);
+
   const getMyInvoices = useCallback(async (): Promise<Invoice[]> => {
     // getMyInvoices requiere msg.sender, necesitamos usar contractWithSigner
     if (!contractWithSigner || !address) {
@@ -542,6 +595,7 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     getCartTotal,
     // Facturas
     createInvoice,
+    createInvoiceWithCurrency,
     getMyInvoices,
     getInvoice,
     getInvoiceItems,

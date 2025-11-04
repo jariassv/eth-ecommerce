@@ -3,10 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
+import { useTokens, SupportedCurrency } from '@/hooks/useTokens';
+import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { CartItem, Product } from '@/lib/contracts';
 import { formatTokenAmount } from '@/lib/ethers';
 import { getIPFSImageUrl } from '@/lib/ipfs';
+import { convertUSDTtoEURT } from '@/lib/exchangeRate';
 import Header from '@/components/Header';
+import CurrencySelector from '@/components/CurrencySelector';
+import PriceConverter from '@/components/PriceConverter';
 import Link from 'next/link';
 
 // Componente para cada item del carrito
@@ -88,15 +93,26 @@ function CartItemRow({ item, product, onRemove }: { item: CartItem; product: Pro
   );
 }
 
+const USD_TOKEN_ADDRESS = typeof window !== 'undefined'
+  ? (process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS || '')
+  : '';
+
+const EUR_TOKEN_ADDRESS = typeof window !== 'undefined'
+  ? (process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '')
+  : '';
+
 export default function CartPage() {
   const { provider, address, isConnected } = useWallet();
-  const { contract, getCart, getProduct, getCartTotal, clearCart, createInvoice, getCompany, removeFromCart, updateCartItem, loading, isReady } = useEcommerce(provider, address);
+  const { contract, getCart, getProduct, getCartTotal, clearCart, createInvoiceWithCurrency, getCompany, removeFromCart, updateCartItem, loading, isReady } = useEcommerce(provider, address);
+  const { selectedCurrency, setSelectedCurrency, loadTokens, approveToken, getSelectedToken } = useTokens(provider, address);
+  const { rate, rateInfo, loading: loadingRate, error: rateError } = useExchangeRate();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Map<string, Product>>(new Map());
-  const [total, setTotal] = useState<bigint>(0n);
+  const [total, setTotal] = useState<bigint>(0n); // Total en USDT (base)
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingCart, setLoadingCart] = useState(true);
+  const [approving, setApproving] = useState(false);
 
   useEffect(() => {
     if (address && isReady) {
@@ -132,6 +148,9 @@ export default function CartPage() {
       // Calcular total
       const cartTotal = await getCartTotal();
       setTotal(cartTotal);
+      
+      // Recargar tokens con el total requerido
+      await loadTokens(cartTotal);
     } catch (err: any) {
       console.error('Error loading cart:', err);
       setError(err.message || 'Error al cargar carrito');
@@ -142,6 +161,47 @@ export default function CartPage() {
 
   const handleCheckout = async () => {
     if (!address || cartItems.length === 0) return;
+
+    // Validar rate
+    if (!rateInfo || !rateInfo.isValid || !rateInfo.isFresh) {
+      setError('El rate de conversión no está disponible o está desactualizado. Por favor, intenta más tarde.');
+      return;
+    }
+
+    // Obtener token seleccionado
+    const selectedToken = getSelectedToken();
+    if (!selectedToken) {
+      setError('No se pudo obtener información del token seleccionado');
+      return;
+    }
+
+    // Calcular amount requerido en la moneda seleccionada
+    let requiredAmount = total; // Por defecto USDT
+    if (selectedCurrency === 'EURT' && rate) {
+      requiredAmount = convertUSDTtoEURT(total, rate);
+    }
+
+    // Validar balance
+    if (!selectedToken.hasSufficientBalance || selectedToken.balance < requiredAmount) {
+      setError(`Saldo insuficiente. Necesitas ${formatTokenAmount(requiredAmount, selectedToken.decimals)} ${selectedToken.symbol} pero tienes ${selectedToken.balanceFormatted} ${selectedToken.symbol}`);
+      return;
+    }
+
+    // Validar y aprobar si es necesario
+    if (selectedToken.needsApproval || selectedToken.allowance < requiredAmount) {
+      setApproving(true);
+      setError(null);
+      try {
+        await approveToken(selectedCurrency, requiredAmount);
+        // Recargar tokens después de aprobar
+        await loadTokens(total);
+      } catch (err: any) {
+        setError(err.message || 'Error al aprobar token');
+        setApproving(false);
+        return;
+      }
+      setApproving(false);
+    }
 
     setProcessing(true);
     setError(null);
@@ -155,21 +215,29 @@ export default function CartPage() {
 
       const companyId = firstProduct.companyId;
 
-      // Obtener información de la empresa para obtener su dirección
-      const company = await getCompany(companyId);
-      const merchantAddress = company.companyAddress;
+      // Obtener dirección del token de pago
+      const paymentTokenAddress = selectedCurrency === 'USDT' ? USD_TOKEN_ADDRESS : EUR_TOKEN_ADDRESS;
+      if (!paymentTokenAddress) {
+        throw new Error(`Dirección del token ${selectedCurrency} no configurada`);
+      }
 
-      // Crear invoice
-      const { invoiceId, totalAmount } = await createInvoice(companyId);
+      // Crear invoice con currency
+      // IMPORTANTE: Pasamos el total en USDT (base) como expectedTotalUSDT
+      // El contrato calculará el total en la moneda seleccionada usando el oráculo
+      const { invoiceId, totalAmount } = await createInvoiceWithCurrency(
+        companyId,
+        paymentTokenAddress,
+        total // expectedTotalUSDT - total del carrito en USDT
+      );
 
       // Limpiar carrito
       await clearCart();
 
       // Redirigir a pasarela de pago
       const paymentGatewayUrl = process.env.NEXT_PUBLIC_PAYMENT_GATEWAY_URL || 'http://localhost:6002';
-      const amount = formatTokenAmount(totalAmount, 6);
+      const amount = formatTokenAmount(totalAmount, selectedToken.decimals);
       
-      const redirectUrl = `${paymentGatewayUrl}/?merchant_address=${merchantAddress}&amount=${amount}&invoice=${invoiceId}&redirect=${encodeURIComponent(window.location.origin + '/orders')}`;
+      const redirectUrl = `${paymentGatewayUrl}/?merchant_address=${paymentTokenAddress}&amount=${amount}&invoice=${invoiceId}&redirect=${encodeURIComponent(window.location.origin + '/orders')}`;
       
       window.location.href = redirectUrl;
     } catch (err: any) {
@@ -177,8 +245,6 @@ export default function CartPage() {
       setProcessing(false);
     }
   };
-
-  const totalFormatted = formatTokenAmount(total, 6);
 
   if (!isConnected || !address) {
     return (
@@ -265,22 +331,55 @@ export default function CartPage() {
                 })}
               </div>
 
-              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-t-2 border-indigo-200 p-6">
-                <div className="flex justify-between items-center mb-6">
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-t-2 border-indigo-200 p-6 space-y-6">
+                {/* Selección de moneda */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Seleccionar Moneda de Pago</h3>
+                  <CurrencySelector
+                    selectedCurrency={selectedCurrency}
+                    onCurrencyChange={setSelectedCurrency}
+                    requiredAmount={selectedCurrency === 'EURT' && rate ? convertUSDTtoEURT(total, rate) : total}
+                    showBalance={true}
+                  />
+                </div>
+
+                {/* Advertencias de rate */}
+                {rateInfo && (!rateInfo.isValid || !rateInfo.isFresh) && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p className="text-sm text-yellow-800">
+                      <strong>⚠ Advertencia:</strong> El rate de conversión no está disponible o está desactualizado.
+                      {!rateInfo.isValid && ' El rate está fuera del rango válido.'}
+                      {!rateInfo.isFresh && ' El rate no se ha actualizado en más de 24 horas.'}
+                      Solo se puede pagar con USDT en este momento.
+                    </p>
+                  </div>
+                )}
+
+                {/* Total del pedido */}
+                <div className="flex justify-between items-center border-t border-indigo-200 pt-4">
                   <span className="text-xl font-semibold text-gray-900">Total del Pedido:</span>
                   <div className="text-right">
-                    <span className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                      ${totalFormatted}
-                    </span>
-                    <p className="text-sm text-gray-600 mt-1">USDT</p>
+                    <PriceConverter
+                      amount={total}
+                      fromCurrency={rateInfo && rateInfo.isValid && rateInfo.isFresh ? selectedCurrency : 'USDT'}
+                      showEquivalent={true}
+                      decimals={6}
+                    />
                   </div>
                 </div>
+
+                {/* Botón de checkout */}
                 <button
                   onClick={handleCheckout}
-                  disabled={processing || loading}
+                  disabled={processing || loading || approving || loadingRate || (rateInfo && (!rateInfo.isValid || !rateInfo.isFresh))}
                   className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/50 transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3"
                 >
-                  {processing ? (
+                  {approving ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Aprobando token...</span>
+                    </>
+                  ) : processing ? (
                     <>
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       <span>Procesando...</span>
