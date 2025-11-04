@@ -17,6 +17,7 @@ export default function Home() {
   useEffect(() => {
     if (isConnected && address && isReady) {
       checkCompany();
+      // Solo verificar owner si el contrato está listo
       checkIfOwner();
     } else {
       setLoading(false);
@@ -24,12 +25,18 @@ export default function Home() {
   }, [isConnected, address, isReady]);
 
   const checkIfOwner = async () => {
+    if (!isReady) {
+      setIsOwner(false);
+      return;
+    }
+    
     try {
       const owner = await getOwner();
       setIsOwner(owner.toLowerCase() === address?.toLowerCase());
     } catch (err) {
       console.error('Error checking owner:', err);
       setIsOwner(false);
+      // No mostrar error al usuario si es solo un problema de configuración
     }
   };
 
