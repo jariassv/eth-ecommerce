@@ -6,6 +6,7 @@
   "main": "src/update-rate.js",
   "scripts": {
     "update-rate": "node src/update-rate.js",
+    "update-rate-manual": "node src/update-rate-manual.js",
     "fetch-rate": "node src/fetch-rate.js",
     "test": "node --test"
   },
