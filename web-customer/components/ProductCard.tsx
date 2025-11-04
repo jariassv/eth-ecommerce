@@ -4,7 +4,9 @@ import { Product } from '@/lib/contracts';
 import { formatTokenAmount } from '@/lib/ethers';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { useWallet } from '@/hooks/useWallet';
+import { useTokens } from '@/hooks/useTokens';
 import { getIPFSImageUrl, getNextIPFSGateway } from '@/lib/ipfs';
+import PriceConverter from './PriceConverter';
 import { useState } from 'react';
 import ProductDetailModal from './ProductDetailModal';
 
@@ -16,6 +18,7 @@ interface ProductCardProps {
 export default function ProductCard({ product, onAddToCart }: ProductCardProps) {
   const { provider, address } = useWallet();
   const { addToCart, loading } = useEcommerce(provider, address);
+  const { selectedCurrency } = useTokens(provider, address);
   const [quantity, setQuantity] = useState<number>(1);
   const [adding, setAdding] = useState(false);
   const [currentGatewayIndex, setCurrentGatewayIndex] = useState(0);
@@ -135,9 +138,12 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
           {/* Precio y stock */}
           <div className="flex items-baseline justify-between border-t border-gray-100 pt-3">
             <div>
-              <p className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                ${price}
-              </p>
+              <PriceConverter
+                amount={product.price}
+                fromCurrency={selectedCurrency}
+                showEquivalent={true}
+                decimals={6}
+              />
               <p className="text-xs text-gray-500 mt-1">
                 Stock: <span className="font-semibold">{product.stock.toString()} unidades</span>
               </p>

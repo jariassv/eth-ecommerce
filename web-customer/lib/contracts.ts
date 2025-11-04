@@ -36,6 +36,32 @@ export const ECOMMERCE_ABI = [
   'event AddedToCart(address indexed customer, uint256 indexed productId, uint256 quantity)',
   'event InvoiceCreated(uint256 indexed invoiceId, address indexed customer, uint256 indexed companyId, uint256 totalAmount)',
   'event ReviewAdded(uint256 indexed reviewId, uint256 indexed productId, address indexed customer, uint256 rating)',
+  
+  // Multi-currency
+  'function createInvoiceWithCurrency(uint256 companyId, address paymentToken, uint256 expectedTotalUSDT) external returns (uint256 invoiceId, uint256 totalAmount)',
+  'function getEURTTokenAddress() external view returns (address)',
+] as const;
+
+// ABI del contrato ExchangeRateOracle
+export const EXCHANGE_RATE_ORACLE_ABI = [
+  'function getRate() external view returns (uint256)',
+  'function isRateValid() external view returns (bool)',
+  'function lastUpdate() external view returns (uint256)',
+  'function getTimeSinceLastUpdate() external view returns (uint256)',
+  'function convertEURTtoUSDT(uint256 eurtAmount) external view returns (uint256)',
+  'function convertUSDTtoEURT(uint256 usdtAmount) external view returns (uint256)',
+  'function usdtToken() external view returns (address)',
+  'function eurtToken() external view returns (address)',
+] as const;
+
+// ABI básico para ERC20
+export const ERC20_ABI = [
+  'function balanceOf(address owner) external view returns (uint256)',
+  'function allowance(address owner, address spender) external view returns (uint256)',
+  'function approve(address spender, uint256 amount) external returns (bool)',
+  'function decimals() external view returns (uint8)',
+  'function symbol() external view returns (string)',
+  'function name() external view returns (string)',
 ] as const;
 
 /**
@@ -74,6 +100,8 @@ export interface Invoice {
   isPaid: boolean;
   paymentTxHash: string;
   itemCount: bigint;
+  paymentToken?: string; // Token de pago (USDT o EURT)
+  expectedTotalUSDT?: bigint; // Total esperado en USDT
 }
 
 /**
