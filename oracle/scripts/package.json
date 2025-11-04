@@ -1,0 +1,28 @@
+{
+  "name": "oracle-scripts",
+  "version": "1.0.0",
+  "description": "Scripts para actualizar el rate del oráculo",
+  "type": "module",
+  "main": "src/update-rate.js",
+  "scripts": {
+    "update-rate": "node src/update-rate.js",
+    "fetch-rate": "node src/fetch-rate.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "oracle",
+    "exchange-rate",
+    "scripts"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ethers": "^6.9.0",
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0"
+  }
+}
+
