@@ -146,7 +146,7 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
     }
   }, [provider, address, loadTokenInfo]);
 
-  const approveToken = useCallback(async (currency: SupportedCurrency, amount: bigint): Promise<string> => {
+  const approveToken = useCallback(async (currency: SupportedCurrency, amount: bigint, requiredAmountUSDT?: bigint, rate?: number): Promise<string> => {
     if (!provider || !address) {
       throw new Error('Wallet no conectada');
     }
@@ -165,8 +165,12 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
       const tx = await tokenContract.approve(ECOMMERCE_ADDRESS, amount);
       const receipt = await tx.wait();
       
-      // Recargar tokens después de aprobar
-      await loadTokens();
+      // Recargar tokens después de aprobar con los mismos parámetros
+      if (requiredAmountUSDT !== undefined) {
+        await loadTokens(requiredAmountUSDT, rate);
+      } else {
+        await loadTokens();
+      }
       
       return receipt.hash;
     } catch (err: any) {

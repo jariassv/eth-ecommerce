@@ -198,7 +198,7 @@ export default function CartPage() {
 
     // Validar balance
     if (!selectedToken.hasSufficientBalance || selectedToken.balance < requiredAmount) {
-      setError(`Saldo insuficiente. Necesitas ${formatTokenAmount(requiredAmount, selectedToken.decimals)} ${selectedToken.symbol} pero tienes ${selectedToken.balanceFormatted} ${selectedToken.symbol}`);
+      setError(`Saldo insuficiente. Necesitas ${formatTokenAmount(requiredAmount, selectedToken.decimals)} ${selectedCurrency} pero tienes ${selectedToken.balanceFormatted} ${selectedCurrency}`);
       return;
     }
 
@@ -207,9 +207,8 @@ export default function CartPage() {
       setApproving(true);
       setError(null);
       try {
-        await approveToken(selectedCurrency, requiredAmount);
-        // Recargar tokens después de aprobar con el rate actual
-        await loadTokens(total, rate);
+        await approveToken(selectedCurrency, requiredAmount, total, rate);
+        // Los tokens ya se recargan en approveToken
       } catch (err: any) {
         setError(err.message || 'Error al aprobar token');
         setApproving(false);

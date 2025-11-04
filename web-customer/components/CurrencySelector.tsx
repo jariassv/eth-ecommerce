@@ -109,15 +109,15 @@ export default function CurrencySelector({
           {!selectedToken.hasSufficientBalance && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-sm text-red-800">
-                <strong>Saldo insuficiente:</strong> Necesitas {formatTokenAmount(requiredAmount, selectedToken.decimals)} {selectedToken.symbol} 
-                pero tienes {selectedToken.balanceFormatted} {selectedToken.symbol}
+                <strong>Saldo insuficiente:</strong> Necesitas {formatTokenAmount(requiredAmount, selectedToken.decimals)} {selectedCurrency} 
+                pero tienes {selectedToken.balanceFormatted} {selectedCurrency}
               </p>
             </div>
           )}
           {selectedToken.needsApproval && selectedToken.hasSufficientBalance && (
             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800">
-                <strong>Aprobación necesaria:</strong> Necesitas aprobar el contrato para gastar {selectedToken.symbol}
+                <strong>Aprobación necesaria:</strong> Necesitas aprobar el contrato para gastar {selectedCurrency}
               </p>
             </div>
           )}
