@@ -8,14 +8,29 @@ interface WalletInfoProps {
   onAddressChange: (address: string | null) => void;
   onBalanceChange: (balance: string) => void;
   onTokenTypeChange?: (tokenType: 'USDT' | 'EURT') => void;
+  invoiceTokenSymbol?: string; // Token requerido por la invoice
+  invoiceTokenAddress?: string; // Dirección del token requerido
 }
 
-export default function WalletInfo({ onAddressChange, onBalanceChange, onTokenTypeChange }: WalletInfoProps) {
+export default function WalletInfo({ 
+  onAddressChange, 
+  onBalanceChange, 
+  onTokenTypeChange,
+  invoiceTokenSymbol,
+  invoiceTokenAddress,
+}: WalletInfoProps) {
   const [address, setAddress] = useState<string | null>(null);
   const [balance, setBalance] = useState<string>('0.00');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tokenType, setTokenType] = useState<'USDT' | 'EURT'>('USDT');
+  
+  // Inicializar con el token de la invoice si está disponible
+  const getInitialTokenType = (): 'USDT' | 'EURT' => {
+    if (invoiceTokenSymbol === 'EURT') return 'EURT';
+    return 'USDT';
+  };
+  
+  const [tokenType, setTokenType] = useState<'USDT' | 'EURT'>(getInitialTokenType());
 
   const usdTokenAddress = typeof window !== 'undefined' 
     ? (process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS || '')
@@ -83,7 +98,11 @@ export default function WalletInfo({ onAddressChange, onBalanceChange, onTokenTy
   const loadBalance = async () => {
     if (!address) return;
     
-    const tokenAddress = tokenType === 'EURT' ? eurTokenAddress : usdTokenAddress;
+    // Usar el token de la invoice si está disponible, sino usar el seleccionado
+    const tokenAddress = invoiceTokenAddress 
+      ? invoiceTokenAddress 
+      : (tokenType === 'EURT' ? eurTokenAddress : usdTokenAddress);
+    
     if (!tokenAddress) return;
 
     try {
@@ -95,6 +114,16 @@ export default function WalletInfo({ onAddressChange, onBalanceChange, onTokenTy
       setError('Error al cargar balance');
     }
   };
+  
+  // Actualizar tokenType cuando cambie invoiceTokenSymbol
+  useEffect(() => {
+    if (invoiceTokenSymbol) {
+      const newTokenType = invoiceTokenSymbol === 'EURT' ? 'EURT' : 'USDT';
+      if (newTokenType !== tokenType) {
+        setTokenType(newTokenType);
+      }
+    }
+  }, [invoiceTokenSymbol]);
 
   useEffect(() => {
     if (onTokenTypeChange) {
@@ -166,6 +195,11 @@ export default function WalletInfo({ onAddressChange, onBalanceChange, onTokenTy
           <div>
             <label htmlFor="tokenType" className="block text-sm font-medium text-gray-700 mb-2">
               Moneda de Pago
+              {invoiceTokenSymbol && (
+                <span className="ml-2 text-xs text-gray-500">
+                  (Requerido: {invoiceTokenSymbol})
+                </span>
+              )}
             </label>
             <select
               id="tokenType"
@@ -174,11 +208,17 @@ export default function WalletInfo({ onAddressChange, onBalanceChange, onTokenTy
                 setTokenType(e.target.value as 'USDT' | 'EURT');
                 setBalance('0.00');
               }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              disabled={!!invoiceTokenAddress} // Deshabilitar si hay token requerido
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="USDT">USD Token (USDT)</option>
               <option value="EURT">EUR Token (EURT)</option>
             </select>
+            {invoiceTokenAddress && invoiceTokenSymbol && (
+              <p className="text-xs text-yellow-600 mt-1">
+                ⚠ Esta factura debe pagarse con {invoiceTokenSymbol}
+              </p>
+            )}
           </div>
           <div>
             <p className="text-sm text-gray-600 mb-1">Balance {tokenType}:</p>
