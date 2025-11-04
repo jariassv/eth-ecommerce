@@ -182,6 +182,8 @@ export default function Home() {
                 merchantAddress={params.merchant_address}
                 redirectUrl={params.redirect}
                 tokenType={tokenType}
+                invoiceTokenSymbol={invoiceTokenSymbol}
+                invoiceTokenAddress={invoiceTokenAddress}
               />
             )}
           </div>

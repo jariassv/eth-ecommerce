@@ -88,7 +88,7 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
     };
   }, [provider, address]);
 
-  const loadTokens = useCallback(async (requiredAmount?: bigint) => {
+  const loadTokens = useCallback(async (requiredAmountUSDT?: bigint, rate?: number) => {
     if (!provider || !address) {
       setTokens(new Map());
       return;
@@ -104,9 +104,10 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
       if (USD_TOKEN_ADDRESS) {
         try {
           const usdtInfo = await loadTokenInfo(USD_TOKEN_ADDRESS, 'USDT');
-          if (requiredAmount !== undefined) {
-            usdtInfo.hasSufficientBalance = usdtInfo.balance >= requiredAmount;
-            usdtInfo.needsApproval = usdtInfo.allowance < requiredAmount;
+          if (requiredAmountUSDT !== undefined) {
+            // Para USDT, el requiredAmount es directamente en USDT
+            usdtInfo.hasSufficientBalance = usdtInfo.balance >= requiredAmountUSDT;
+            usdtInfo.needsApproval = usdtInfo.allowance < requiredAmountUSDT;
           }
           tokensMap.set('USDT', usdtInfo);
         } catch (err) {
@@ -118,9 +119,17 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
       if (EUR_TOKEN_ADDRESS) {
         try {
           const eurtInfo = await loadTokenInfo(EUR_TOKEN_ADDRESS, 'EURT');
-          if (requiredAmount !== undefined) {
-            eurtInfo.hasSufficientBalance = eurtInfo.balance >= requiredAmount;
-            eurtInfo.needsApproval = eurtInfo.allowance < requiredAmount;
+          if (requiredAmountUSDT !== undefined && rate) {
+            // Para EURT, necesitamos convertir el requiredAmount de USDT a EURT
+            // Importar función de conversión
+            const { convertUSDTtoEURT } = await import('@/lib/exchangeRate');
+            const requiredAmountEURT = convertUSDTtoEURT(requiredAmountUSDT, rate);
+            eurtInfo.hasSufficientBalance = eurtInfo.balance >= requiredAmountEURT;
+            eurtInfo.needsApproval = eurtInfo.allowance < requiredAmountEURT;
+          } else if (requiredAmountUSDT !== undefined) {
+            // Si no hay rate, no podemos validar EURT
+            eurtInfo.hasSufficientBalance = false;
+            eurtInfo.needsApproval = false;
           }
           tokensMap.set('EURT', eurtInfo);
         } catch (err) {
