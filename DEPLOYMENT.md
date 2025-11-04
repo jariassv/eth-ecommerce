@@ -105,10 +105,14 @@ Este script:
 2. ✅ Inicia Anvil (blockchain local)
 3. ✅ Deploy USDToken
 4. ✅ Deploy EURToken
-5. ✅ Deploy Ecommerce
-6. ✅ Actualiza variables de entorno en todas las apps
-7. ✅ Instala dependencias (si es necesario)
-8. ✅ Inicia todas las aplicaciones Next.js
+5. ✅ Deploy ExchangeRateOracle
+6. ✅ Deploy Ecommerce
+7. ✅ Actualiza variables de entorno en todas las apps
+8. ✅ Configura variables de entorno del Oracle API
+9. ✅ Configura variables de entorno de los Oracle Scripts
+10. ✅ Instala dependencias (si es necesario)
+11. ✅ Inicia todas las aplicaciones Next.js
+12. ✅ Inicia Oracle API (si se selecciona)
 
 ### Opción 2: Deployment Manual
 
@@ -132,8 +136,18 @@ forge script script/DeployUSDToken.s.sol:DeployUSDToken --rpc-url http://localho
 # Deploy EURToken
 forge script script/DeployEURToken.s.sol:DeployEURToken --rpc-url http://localhost:8545 --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
+# Deploy ExchangeRateOracle
+cd ../../oracle/sc
+export USDT_TOKEN_ADDRESS=<dirección_de_USDToken>
+export EURT_TOKEN_ADDRESS=<dirección_de_EURToken>
+export INITIAL_RATE=1100000  # 1.10 en 6 decimales
+forge script script/DeployExchangeRateOracle.s.sol:DeployExchangeRateOracle --rpc-url http://localhost:8545 --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+
 # Deploy Ecommerce
 cd ../../sc-ecommerce
+export USDTOKEN_ADDRESS=<dirección_de_USDToken>
+export EURTOKEN_ADDRESS=<dirección_de_EURToken>
+export EXCHANGE_RATE_ORACLE_ADDRESS=<dirección_de_Oracle>
 forge script script/DeployEcommerce.s.sol:DeployEcommerce --rpc-url http://localhost:8545 --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 ```
 
@@ -172,6 +186,7 @@ Después del deployment, accede a:
 | Aplicación | URL | Descripción |
 |------------|-----|-------------|
 | Anvil | http://localhost:8545 | Blockchain local |
+| Oracle API | http://localhost:3001 | API REST para consultar rate de conversión |
 | Compra Stablecoin | http://localhost:6001 | Compra tokens con Stripe |
 | Pasarela de Pago | http://localhost:6002 | Pagos con tokens |
 | Web Admin | http://localhost:6003 | Panel de administración |

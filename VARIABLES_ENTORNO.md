@@ -86,6 +86,8 @@ NEXT_PUBLIC_APP_URL=http://localhost:6003
 ```bash
 NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=0x...  # Configurado por restart-all.sh
 NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=0x...   # Configurado por restart-all.sh
+NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=0x...   # Configurado por restart-all.sh
+NEXT_PUBLIC_ORACLE_API_URL=http://localhost:3001  # Configurado por restart-all.sh
 NEXT_PUBLIC_RPC_URL=http://localhost:8545     # Configurado por restart-all.sh
 NEXT_PUBLIC_CHAIN_ID=31337                    # Configurado por restart-all.sh
 ```
@@ -95,6 +97,28 @@ NEXT_PUBLIC_CHAIN_ID=31337                    # Configurado por restart-all.sh
 NEXT_PUBLIC_APP_URL=http://localhost:6004
 NEXT_PUBLIC_PAYMENT_GATEWAY_URL=http://localhost:6002
 ```
+
+### 5. Oracle API (`oracle/api/.env`)
+
+#### Requeridas (Configuradas automáticamente)
+```bash
+RPC_URL=http://localhost:8545                 # Configurado por restart-all.sh
+EXCHANGE_RATE_ORACLE_ADDRESS=0x...            # Configurado por restart-all.sh
+PORT=3001                                     # Configurado por restart-all.sh
+NODE_ENV=development                          # Configurado por restart-all.sh
+```
+
+### 6. Oracle Scripts (`oracle/scripts/.env`)
+
+#### Requeridas (Configuradas automáticamente)
+```bash
+RPC_URL=http://localhost:8545                 # Configurado por restart-all.sh
+EXCHANGE_RATE_ORACLE_ADDRESS=0x...            # Configurado por restart-all.sh
+PRIVATE_KEY=0x...                             # Private key del owner del contrato Oracle
+RATE_UPDATE_THRESHOLD=0.1                     # Umbral de diferencia en % para actualizar (default: 0.1%)
+```
+
+**Nota:** El `PRIVATE_KEY` debe ser del owner del contrato `ExchangeRateOracle` para poder actualizar el rate.
 
 ## 🔄 Configuración Automática
 

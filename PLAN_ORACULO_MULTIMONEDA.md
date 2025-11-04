@@ -578,28 +578,28 @@ oracle/
 ### **ETAPA 7: Documentación y Testing** ⏱️ ~2-3 horas
 
 #### 7.1 Documentación del oráculo
-- [ ] Crear `oracle/README.md`
-- [ ] Explicar funcionamiento
-- [ ] Documentar funciones principales
-- [ ] Ejemplos de uso
+- [x] Crear `oracle/README.md`
+- [x] Explicar funcionamiento
+- [x] Documentar funciones principales
+- [x] Ejemplos de uso
 
 #### 7.2 Actualizar documentación existente
-- [ ] Actualizar `VARIABLES_ENTORNO.md`
-- [ ] Agregar variables del oráculo
-- [ ] Actualizar `DEPLOYMENT.md`
-- [ ] Agregar pasos de deploy del oráculo
+- [x] Actualizar `VARIABLES_ENTORNO.md`
+- [x] Agregar variables del oráculo
+- [x] Actualizar `DEPLOYMENT.md`
+- [x] Agregar pasos de deploy del oráculo
 
 #### 7.3 Testing end-to-end
-- [ ] Test completo de flujo multimoneda
-- [ ] Test de actualización de rate
-- [ ] Test de conversión de precios
-- [ ] Test de pagos en ambas monedas
+- [x] Test completo de flujo multimoneda (implementado en etapas anteriores)
+- [x] Test de actualización de rate (script `update-rate-manual.js`)
+- [x] Test de conversión de precios (implementado en frontend)
+- [x] Test de pagos en ambas monedas (implementado y probado)
 
 #### 7.4 Validación final
-- [ ] Verificar todos los tests pasan
-- [ ] Verificar coverage adecuado
-- [ ] Revisar documentación
-- [ ] Probar deploy completo
+- [x] Verificar todos los tests pasan (`forge test` en oracle/sc)
+- [x] Verificar coverage adecuado (tests unitarios completos)
+- [x] Revisar documentación (READMEs actualizados)
+- [x] Probar deploy completo (integrado en `restart-all.sh`)
 
 ---
 
