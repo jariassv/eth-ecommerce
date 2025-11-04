@@ -3,13 +3,28 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
+import { useTokens } from '@/hooks/useTokens';
+import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { CartItem, Product } from '@/lib/contracts';
 import { formatTokenAmount } from '@/lib/ethers';
 import { getIPFSImageUrl } from '@/lib/ipfs';
+import { convertUSDTtoEURT } from '@/lib/exchangeRate';
+import PriceConverter from './PriceConverter';
+import CurrencySelector from './CurrencySelector';
 import Link from 'next/link';
 
 // Componente para cada item del carrito
-function CartItemRow({ item, product, onRemove }: { item: CartItem; product: Product; onRemove: () => Promise<void> }) {
+function CartItemRow({ 
+  item, 
+  product, 
+  onRemove, 
+  selectedCurrency 
+}: { 
+  item: CartItem; 
+  product: Product; 
+  onRemove: () => Promise<void>;
+  selectedCurrency: 'USDT' | 'EURT';
+}) {
   const [removing, setRemoving] = useState(false);
 
   const handleRemove = async (e: React.MouseEvent) => {
@@ -47,9 +62,14 @@ function CartItemRow({ item, product, onRemove }: { item: CartItem; product: Pro
       <div className="flex-1 min-w-0">
         <h3 className="font-semibold text-gray-900 truncate">{product.name}</h3>
         <p className="text-sm text-gray-600">Cantidad: {item.quantity.toString()}</p>
-        <p className="text-lg font-bold text-indigo-600 mt-1">
-          ${formatTokenAmount(itemTotal, 6)}
-        </p>
+        <div className="mt-1">
+          <PriceConverter
+            amount={itemTotal}
+            fromCurrency={selectedCurrency}
+            showEquivalent={false}
+            decimals={6}
+          />
+        </div>
       </div>
       <button
         onClick={handleRemove}
@@ -77,13 +97,23 @@ interface CartPreviewModalProps {
 
 export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: CartPreviewModalProps) {
   const { provider, address, isConnected } = useWallet();
-  const { getCart, getProduct, getCartTotal, clearCart, createInvoice, getCompany, removeFromCart, isReady } = useEcommerce(provider, address);
+  const { getCart, getProduct, getCartTotal, clearCart, createInvoiceWithCurrency, getCompany, removeFromCart, isReady } = useEcommerce(provider, address);
+  const { selectedCurrency, setSelectedCurrency, loadTokens, approveToken, getSelectedToken } = useTokens(provider, address);
+  const { rate, rateInfo, loading: loadingRate, error: rateError } = useExchangeRate();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Map<string, Product>>(new Map());
   const [total, setTotal] = useState<bigint>(0n);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [approving, setApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const USD_TOKEN_ADDRESS = typeof window !== 'undefined'
+    ? (process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS || '')
+    : '';
+  const EUR_TOKEN_ADDRESS = typeof window !== 'undefined'
+    ? (process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '')
+    : '';
 
   useEffect(() => {
     if (isOpen && isConnected && address && isReady) {
@@ -124,6 +154,11 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
       // Calcular total
       const cartTotal = await getCartTotal();
       setTotal(cartTotal);
+      
+      // Cargar tokens con el total requerido
+      if (cartTotal > 0n) {
+        await loadTokens(cartTotal, rate);
+      }
     } catch (err: any) {
       console.error('Error loading cart:', err);
       setError(err.message || 'Error al cargar carrito');
@@ -132,8 +167,57 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
     }
   };
 
+  // Recargar tokens cuando cambie la moneda seleccionada o el rate
+  useEffect(() => {
+    if (isOpen && address && isReady && total > 0n) {
+      loadTokens(total, rate);
+    }
+  }, [selectedCurrency, rate, total, address, isReady, isOpen, loadTokens]);
+
   const handleCheckout = async () => {
     if (!address || cartItems.length === 0) return;
+
+    // Validar rate
+    if (!rateInfo || !rateInfo.isValid || !rateInfo.isFresh) {
+      setError('El rate de conversión no está disponible o está desactualizado. Por favor, intenta más tarde.');
+      return;
+    }
+
+    // Recalcular requiredAmount y recargar tokens para asegurar validación correcta
+    let requiredAmount = total;
+    if (selectedCurrency === 'EURT' && rate) {
+      requiredAmount = convertUSDTtoEURT(total, rate);
+    }
+    
+    // Recargar tokens con el amount correcto antes de validar
+    await loadTokens(total, rate);
+    
+    // Obtener token seleccionado después de recargar
+    const selectedToken = getSelectedToken();
+    if (!selectedToken) {
+      setError('No se pudo obtener información del token seleccionado');
+      return;
+    }
+
+    // Validar balance
+    if (selectedToken.balance < requiredAmount) {
+      setError(`Saldo insuficiente. Necesitas ${formatTokenAmount(requiredAmount, selectedToken.decimals)} ${selectedCurrency} pero tienes ${selectedToken.balanceFormatted} ${selectedCurrency}`);
+      return;
+    }
+
+    // Validar y aprobar si es necesario
+    if (selectedToken.needsApproval || selectedToken.allowance < requiredAmount) {
+      setApproving(true);
+      setError(null);
+      try {
+        await approveToken(selectedCurrency, requiredAmount, total, rate);
+      } catch (err: any) {
+        setError(err.message || 'Error al aprobar token');
+        setApproving(false);
+        return;
+      }
+      setApproving(false);
+    }
 
     setProcessing(true);
     setError(null);
@@ -149,8 +233,18 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
       const company = await getCompany(companyId);
       const merchantAddress = company.companyAddress;
 
-      // Crear invoice
-      const { invoiceId, totalAmount } = await createInvoice(companyId);
+      // Obtener dirección del token de pago
+      const paymentTokenAddress = selectedCurrency === 'USDT' ? USD_TOKEN_ADDRESS : EUR_TOKEN_ADDRESS;
+      if (!paymentTokenAddress) {
+        throw new Error(`Dirección del token ${selectedCurrency} no configurada`);
+      }
+
+      // Crear invoice con currency
+      const { invoiceId, totalAmount } = await createInvoiceWithCurrency(
+        companyId,
+        paymentTokenAddress,
+        total // expectedTotalUSDT - total del carrito en USDT
+      );
 
       // Limpiar carrito
       await clearCart();
@@ -168,7 +262,7 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
 
       // Redirigir a pasarela de pago
       const paymentGatewayUrl = process.env.NEXT_PUBLIC_PAYMENT_GATEWAY_URL || 'http://localhost:6002';
-      const amount = formatTokenAmount(totalAmount, 6);
+      const amount = formatTokenAmount(totalAmount, selectedToken.decimals);
       
       const redirectUrl = `${paymentGatewayUrl}/?merchant_address=${merchantAddress}&amount=${amount}&invoice=${invoiceId}&redirect=${encodeURIComponent(window.location.origin + '/orders')}`;
       
@@ -242,6 +336,7 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
                     key={item.productId.toString()}
                     item={item}
                     product={product}
+                    selectedCurrency={selectedCurrency}
                     onRemove={async () => {
                       await removeFromCart(item.productId);
                       await loadCart();
@@ -259,13 +354,47 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
 
         {/* Footer */}
         {cartItems.length > 0 && (
-          <div className="border-t border-gray-200 p-6 bg-gray-50">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-lg font-semibold text-gray-900">Total:</span>
-              <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                ${formatTokenAmount(total, 6)}
-              </span>
+          <div className="border-t border-gray-200 p-6 bg-gray-50 space-y-4">
+            {/* Selección de moneda */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Moneda de Pago</h3>
+              <CurrencySelector
+                selectedCurrency={selectedCurrency}
+                onCurrencyChange={(currency) => {
+                  setSelectedCurrency(currency);
+                  if (total > 0n) {
+                    loadTokens(total, rate);
+                  }
+                }}
+                requiredAmount={selectedCurrency === 'EURT' && rate ? convertUSDTtoEURT(total, rate) : total}
+                showBalance={true}
+              />
             </div>
+
+            {/* Advertencias de rate */}
+            {rateInfo && (!rateInfo.isValid || !rateInfo.isFresh) && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-xs text-yellow-800">
+                  <strong>⚠ Advertencia:</strong> El rate de conversión no está disponible o está desactualizado.
+                  {!rateInfo.isValid && ' El rate está fuera del rango válido.'}
+                  {!rateInfo.isFresh && ' El rate no se ha actualizado en más de 24 horas.'}
+                  Solo se puede pagar con USDT en este momento.
+                </p>
+              </div>
+            )}
+
+            {/* Total */}
+            <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+              <span className="text-lg font-semibold text-gray-900">Total:</span>
+              <PriceConverter
+                amount={total}
+                fromCurrency={rateInfo && rateInfo.isValid && rateInfo.isFresh ? selectedCurrency : 'USDT'}
+                showEquivalent={true}
+                decimals={6}
+              />
+            </div>
+
+            {/* Botones */}
             <div className="flex gap-3">
               <Link
                 href="/cart"
@@ -276,10 +405,15 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
               </Link>
               <button
                 onClick={handleCheckout}
-                disabled={processing || !isConnected || !address}
+                disabled={processing || approving || !isConnected || !address || loadingRate || (rateInfo && (!rateInfo.isValid || !rateInfo.isFresh))}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg shadow-indigo-500/50 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {processing ? (
+                {approving ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Aprobando token...</span>
+                  </>
+                ) : processing ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     <span>Procesando...</span>
