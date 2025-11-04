@@ -96,6 +96,7 @@ fi
 export PRIVATE_KEY
 export USDT_TOKEN_ADDRESS=$USD_TOKEN_ADDRESS
 export EURT_TOKEN_ADDRESS=$EUR_TOKEN_ADDRESS
+# Nota: El script de deploy espera USDT_TOKEN_ADDRESS y EURT_TOKEN_ADDRESS (con T)
 # Rate inicial: 1.10 USD por EUR (1,100,000 en 6 decimales)
 export INITIAL_RATE=1100000
 DEPLOY_OUTPUT=$(forge script script/DeployExchangeRateOracle.s.sol --rpc-url http://localhost:8545 --broadcast --private-key $PRIVATE_KEY -vvv 2>&1)
