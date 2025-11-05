@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { Invoice } from '@/lib/contracts';
@@ -8,12 +8,21 @@ import { formatTokenAmount } from '@/lib/ethers';
 import Header from '@/components/Header';
 import Link from 'next/link';
 
+// Helper para obtener la dirección de EURT
+const getEURTAddress = (): string => {
+  if (typeof window === 'undefined') return '';
+  return (process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '').toLowerCase();
+};
+
 export default function OrdersPage() {
   const { provider, address, isConnected } = useWallet();
   const { getMyInvoices, loading, isReady } = useEcommerce(provider, address);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Memoizar la dirección de EURT para evitar recalcularla en cada render
+  const eurtAddress = useMemo(() => getEURTAddress(), []);
 
   useEffect(() => {
     if (isConnected && address && isReady) {
@@ -137,45 +146,19 @@ export default function OrdersPage() {
           <div className="space-y-4">
             {invoices.map((invoice) => {
               // Determinar la moneda de pago
-              const getPaymentCurrency = (invoice: Invoice): 'USDT' | 'EURT' => {
-                const invoicePaymentToken = (invoice.paymentToken || '').toLowerCase();
-                
-                // Si paymentToken es address(0) o vacío, asumimos USDT (facturas antiguas)
-                if (!invoicePaymentToken || invoicePaymentToken === '0x0000000000000000000000000000000000000000') {
-                  return 'USDT';
-                }
-                
-                const eurtAddress = typeof window !== 'undefined' 
-                  ? (process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '').toLowerCase()
-                  : '';
-                
-                console.log('Invoice payment currency check:', {
-                  invoiceId: invoice.invoiceId.toString(),
-                  paymentToken: invoice.paymentToken,
-                  paymentTokenLower: invoicePaymentToken,
-                  eurtAddress: eurtAddress,
-                  match: eurtAddress && invoicePaymentToken === eurtAddress
-                });
-                
-                // Si la dirección coincide con EURT, es EURT
-                if (eurtAddress && invoicePaymentToken === eurtAddress) {
-                  return 'EURT';
-                }
-                
-                // Por defecto, USDT
-                return 'USDT';
-              };
-
-              const paymentCurrency = getPaymentCurrency(invoice);
-              const amount = formatTokenAmount(invoice.totalAmount, 6);
+              const invoicePaymentToken = (invoice.paymentToken || '').toLowerCase();
               
-              console.log('Displaying invoice:', {
-                invoiceId: invoice.invoiceId.toString(),
-                paymentCurrency,
-                amount,
-                totalAmount: invoice.totalAmount.toString(),
-                paymentToken: invoice.paymentToken
-              });
+              // Si paymentToken es address(0) o vacío, asumimos USDT (facturas antiguas)
+              let paymentCurrency: 'USDT' | 'EURT' = 'USDT';
+              
+              if (invoicePaymentToken && invoicePaymentToken !== '0x0000000000000000000000000000000000000000') {
+                // Comparar con la dirección de EURT
+                if (eurtAddress && invoicePaymentToken === eurtAddress) {
+                  paymentCurrency = 'EURT';
+                }
+              }
+              
+              const amount = formatTokenAmount(invoice.totalAmount, 6);
               
               return (
                 <div
