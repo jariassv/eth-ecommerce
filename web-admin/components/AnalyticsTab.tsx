@@ -95,10 +95,10 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
       if (invoice.expectedTotalUSDT > 0n) {
         return invoice.expectedTotalUSDT;
       }
-      // Si no, retornar 0 para evitar usar EURT como USDT
-      // Esto solo debería pasar si hay un error en la factura
-      console.warn(`Invoice ${invoice.invoiceId} pagada en EURT pero sin expectedTotalUSDT`);
-      return 0n;
+      // Si no tenemos expectedTotalUSDT, usar totalAmount como fallback
+      // (aunque técnicamente está en EURT, lo usamos para evitar pérdida de datos)
+      console.warn(`Invoice ${invoice.invoiceId} pagada en EURT pero sin expectedTotalUSDT, usando totalAmount como fallback`);
+      return invoice.totalAmount;
     }
     
     // Si no es EURT, asumimos USDT
