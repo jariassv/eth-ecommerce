@@ -91,7 +91,7 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
     
     // Si tenemos expectedTotalUSDT > 0, significa que la factura fue pagada en EURT
     // y tenemos el valor esperado en USDT, así que lo usamos
-    if (invoice.expectedTotalUSDT > 0n) {
+    if (invoice.expectedTotalUSDT > BigInt(0)) {
       return invoice.expectedTotalUSDT;
     }
     
@@ -107,10 +107,7 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
 
   useEffect(() => {
     if (isReady && isConnected) {
-      // Solo cargar datos si no están ya cargados o si el companyId cambió
-      if (invoices.length === 0 && products.length === 0) {
-        loadData();
-      }
+      loadData();
     } else if (!isConnected) {
       setLoadingData(false);
       setError('Debes conectar tu wallet para ver los analytics');
@@ -162,11 +159,11 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
     const totalRevenue = paidInvoices.reduce((sum, inv) => {
       const amountInUSDT = getAmountInUSDT(inv);
       return sum + amountInUSDT;
-    }, 0n);
+    }, BigInt(0));
     
     const totalCustomers = new Set(paidInvoices.map(inv => inv.customerAddress)).size;
     const totalOrders = paidInvoices.length;
-    const averageOrderValue = totalOrders > 0 ? totalRevenue / BigInt(totalOrders) : 0n;
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / BigInt(totalOrders) : BigInt(0);
 
     return {
       totalRevenue,

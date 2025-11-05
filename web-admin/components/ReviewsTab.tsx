@@ -34,10 +34,7 @@ export default function ReviewsTab({ companyId }: ReviewsTabProps) {
 
   useEffect(() => {
     if (isReady) {
-      // Solo cargar reviews si no están ya cargados o si el companyId cambió
-      if (productsWithReviews.length === 0) {
-        loadReviews();
-      }
+      loadReviews();
     }
   }, [companyId, isReady]);
 
@@ -59,7 +56,7 @@ export default function ReviewsTab({ companyId }: ReviewsTabProps) {
             ]);
 
             // Calcular rating promedio (rating está multiplicado por 100 en el contrato)
-            const averageRating = ratingData.reviewCount > 0n
+            const averageRating = ratingData.reviewCount > BigInt(0)
               ? Number(ratingData.averageRating) / 100
               : 0;
 
