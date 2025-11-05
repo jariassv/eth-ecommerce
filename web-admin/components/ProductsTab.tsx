@@ -22,10 +22,7 @@ export default function ProductsTab({ companyId }: ProductsTabProps) {
 
   useEffect(() => {
     if (isReady) {
-      // Solo cargar productos si no están ya cargados o si el companyId cambió
-      if (products.length === 0) {
-        loadProducts();
-      }
+      loadProducts();
     }
   }, [companyId, isReady]);
 

@@ -17,6 +17,24 @@ export default function InvoicesTab({ companyId }: InvoicesTabProps) {
   const [loadingInvoices, setLoadingInvoices] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Helper para obtener el monto en USDT (para el admin, siempre mostrar en USDT)
+  const getAmountInUSDT = (invoice: Invoice): bigint => {
+    // Si paymentToken es address(0) o vacío, asumimos USDT (facturas antiguas)
+    const invoicePaymentToken = (invoice.paymentToken || '').toLowerCase();
+    if (!invoicePaymentToken || invoicePaymentToken === '0x0000000000000000000000000000000000000000') {
+      return invoice.totalAmount;
+    }
+    
+    // Si tenemos expectedTotalUSDT > 0, significa que la factura fue pagada en EURT
+    // y tenemos el valor esperado en USDT, así que lo usamos
+    if (invoice.expectedTotalUSDT > BigInt(0)) {
+      return invoice.expectedTotalUSDT;
+    }
+    
+    // Si no, asumimos que totalAmount ya está en USDT
+    return invoice.totalAmount;
+  };
+
   useEffect(() => {
     console.log('InvoicesTab useEffect:', { isReady, isReadyWithSigner, isConnected, companyId: companyId.toString() });
     if (isReady && isReadyWithSigner && isConnected) {
@@ -114,7 +132,7 @@ export default function InvoicesTab({ companyId }: InvoicesTabProps) {
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-indigo-600 mb-1">
-                    ${formatTokenAmount(invoice.totalAmount, 6)}
+                    ${formatTokenAmount(getAmountInUSDT(invoice), 6)} USDT
                   </p>
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                     invoice.isPaid

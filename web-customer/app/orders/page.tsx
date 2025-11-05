@@ -136,7 +136,27 @@ export default function OrdersPage() {
         ) : (
           <div className="space-y-4">
             {invoices.map((invoice) => {
+              // Determinar la moneda de pago
+              const getPaymentCurrency = (invoice: Invoice): 'USDT' | 'EURT' => {
+                const invoicePaymentToken = (invoice.paymentToken || '').toLowerCase();
+                if (!invoicePaymentToken || invoicePaymentToken === '0x0000000000000000000000000000000000000000') {
+                  return 'USDT'; // Facturas antiguas sin paymentToken
+                }
+                
+                const eurtAddress = typeof window !== 'undefined' 
+                  ? (process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '').toLowerCase()
+                  : '';
+                
+                if (eurtAddress && invoicePaymentToken === eurtAddress) {
+                  return 'EURT';
+                }
+                
+                return 'USDT';
+              };
+
+              const paymentCurrency = getPaymentCurrency(invoice);
               const amount = formatTokenAmount(invoice.totalAmount, 6);
+              
               return (
                 <div
                   key={invoice.invoiceId.toString()}
@@ -168,7 +188,7 @@ export default function OrdersPage() {
                         <p className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                           ${amount}
                         </p>
-                        <p className="text-sm text-gray-500">USDT</p>
+                        <p className="text-sm text-gray-500">{paymentCurrency}</p>
                         <span
                           className={`inline-block mt-3 px-4 py-1.5 rounded-full text-xs font-bold ${
                             invoice.isPaid
