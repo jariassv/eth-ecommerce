@@ -30,8 +30,8 @@ export default function InvoicesTab({ companyId }: InvoicesTabProps) {
   }, [companyId, isReady, isReadyWithSigner, isConnected]);
 
   const loadInvoices = async () => {
-    if (!isReady) {
-      console.log('InvoicesTab: not ready yet');
+    if (!isReady || !isReadyWithSigner) {
+      console.log('InvoicesTab: not ready yet', { isReady, isReadyWithSigner });
       return;
     }
 
