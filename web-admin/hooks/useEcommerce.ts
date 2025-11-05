@@ -470,6 +470,7 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     loading,
     error,
     isReady: !!contract && !isInitializing,
+    isReadyWithSigner: !!contractWithSigner && !isInitializing,
     isInitializing,
     // Empresas
     getOwner,

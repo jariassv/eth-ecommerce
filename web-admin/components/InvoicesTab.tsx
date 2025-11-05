@@ -12,22 +12,22 @@ interface InvoicesTabProps {
 
 export default function InvoicesTab({ companyId }: InvoicesTabProps) {
   const { address, provider, isConnected } = useWallet();
-  const { getCompanyInvoices, loading, isReady } = useEcommerce(provider, address);
+  const { getCompanyInvoices, loading, isReady, isReadyWithSigner } = useEcommerce(provider, address);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('InvoicesTab useEffect:', { isReady, isConnected, companyId: companyId.toString() });
-    if (isReady && isConnected) {
+    console.log('InvoicesTab useEffect:', { isReady, isReadyWithSigner, isConnected, companyId: companyId.toString() });
+    if (isReady && isReadyWithSigner && isConnected) {
       loadInvoices();
     } else if (!isConnected) {
       setLoadingInvoices(false);
       setError('Debes conectar tu wallet para ver las facturas');
     } else {
-      console.log('InvoicesTab: Waiting for ready state...');
+      console.log('InvoicesTab: Waiting for ready state...', { isReady, isReadyWithSigner, isConnected });
     }
-  }, [companyId, isReady, isConnected]);
+  }, [companyId, isReady, isReadyWithSigner, isConnected]);
 
   const loadInvoices = async () => {
     if (!isReady) {
