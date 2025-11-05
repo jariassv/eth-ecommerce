@@ -84,13 +84,24 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
     const eurtAddress = getEURTTokenAddress().toLowerCase();
     const invoicePaymentToken = (invoice.paymentToken || '').toLowerCase();
     
-    // Si la factura fue pagada en EURT y tenemos expectedTotalUSDT, usarlo
-    if (invoicePaymentToken === eurtAddress && invoice.expectedTotalUSDT > 0n) {
-      return invoice.expectedTotalUSDT;
+    // Si paymentToken es address(0) o vacío, asumimos USDT (facturas antiguas)
+    if (!invoicePaymentToken || invoicePaymentToken === '0x0000000000000000000000000000000000000000') {
+      return invoice.totalAmount;
     }
     
-    // Si no, usar totalAmount directamente (asumiendo que está en USDT o ya está en la unidad correcta)
-    // Nota: Para facturas antiguas sin paymentToken, asumimos USDT
+    // Si la factura fue pagada en EURT
+    if (eurtAddress && invoicePaymentToken === eurtAddress) {
+      // Si tenemos expectedTotalUSDT, usarlo
+      if (invoice.expectedTotalUSDT > 0n) {
+        return invoice.expectedTotalUSDT;
+      }
+      // Si no, retornar 0 para evitar usar EURT como USDT
+      // Esto solo debería pasar si hay un error en la factura
+      console.warn(`Invoice ${invoice.invoiceId} pagada en EURT pero sin expectedTotalUSDT`);
+      return 0n;
+    }
+    
+    // Si no es EURT, asumimos USDT
     return invoice.totalAmount;
   };
 
@@ -113,11 +124,17 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
         getCompanyInvoices(companyId),
         getCompanyProducts(companyId),
       ]);
+      
+      console.log('Invoices loaded:', companyInvoices.length);
+      console.log('Sample invoice:', companyInvoices[0]);
+      
       setInvoices(companyInvoices);
       setProducts(companyProducts);
 
       // Cargar items de todas las facturas pagadas
       const paidInvoices = companyInvoices.filter(inv => inv.isPaid);
+      console.log('Paid invoices:', paidInvoices.length);
+      
       const itemsMap = new Map<bigint, Array<{ productId: bigint; quantity: bigint }>>();
       
       for (const invoice of paidInvoices) {
@@ -142,11 +159,16 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
   const metrics = useMemo(() => {
     const paidInvoices = invoices.filter(inv => inv.isPaid);
     
+    console.log('Calculating metrics for', paidInvoices.length, 'paid invoices');
+    
     // Convertir todos los ingresos a USDT para el total
     const totalRevenue = paidInvoices.reduce((sum, inv) => {
       const amountInUSDT = getAmountInUSDT(inv);
+      console.log(`Invoice ${inv.invoiceId}: totalAmount=${inv.totalAmount}, paymentToken=${inv.paymentToken}, expectedTotalUSDT=${inv.expectedTotalUSDT}, amountInUSDT=${amountInUSDT}`);
       return sum + amountInUSDT;
     }, 0n);
+    
+    console.log('Total revenue:', totalRevenue);
     
     const totalCustomers = new Set(paidInvoices.map(inv => inv.customerAddress)).size;
     const totalOrders = paidInvoices.length;
