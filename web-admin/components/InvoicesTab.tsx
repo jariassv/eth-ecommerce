@@ -28,16 +28,13 @@ export default function InvoicesTab({ companyId }: InvoicesTabProps) {
 
   const loadInvoices = async () => {
     if (!isReady) {
-      console.log('loadInvoices: not ready yet');
       return;
     }
 
     try {
       setLoadingInvoices(true);
       setError(null);
-      console.log('Loading invoices for companyId:', companyId.toString());
       const companyInvoices = await getCompanyInvoices(companyId);
-      console.log('Invoices loaded:', companyInvoices.length, companyInvoices);
       setInvoices(companyInvoices);
     } catch (err: any) {
       console.error('Error loading invoices:', err);

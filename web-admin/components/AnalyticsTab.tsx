@@ -125,15 +125,11 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
         getCompanyProducts(companyId),
       ]);
       
-      console.log('Invoices loaded:', companyInvoices.length);
-      console.log('Sample invoice:', companyInvoices[0]);
-      
       setInvoices(companyInvoices);
       setProducts(companyProducts);
 
       // Cargar items de todas las facturas pagadas
       const paidInvoices = companyInvoices.filter(inv => inv.isPaid);
-      console.log('Paid invoices:', paidInvoices.length);
       
       const itemsMap = new Map<bigint, Array<{ productId: bigint; quantity: bigint }>>();
       
@@ -159,16 +155,11 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
   const metrics = useMemo(() => {
     const paidInvoices = invoices.filter(inv => inv.isPaid);
     
-    console.log('Calculating metrics for', paidInvoices.length, 'paid invoices');
-    
     // Convertir todos los ingresos a USDT para el total
     const totalRevenue = paidInvoices.reduce((sum, inv) => {
       const amountInUSDT = getAmountInUSDT(inv);
-      console.log(`Invoice ${inv.invoiceId}: totalAmount=${inv.totalAmount}, paymentToken=${inv.paymentToken}, expectedTotalUSDT=${inv.expectedTotalUSDT}, amountInUSDT=${amountInUSDT}`);
       return sum + amountInUSDT;
     }, 0n);
-    
-    console.log('Total revenue:', totalRevenue);
     
     const totalCustomers = new Set(paidInvoices.map(inv => inv.customerAddress)).size;
     const totalOrders = paidInvoices.length;
