@@ -139,23 +139,43 @@ export default function OrdersPage() {
               // Determinar la moneda de pago
               const getPaymentCurrency = (invoice: Invoice): 'USDT' | 'EURT' => {
                 const invoicePaymentToken = (invoice.paymentToken || '').toLowerCase();
+                
+                // Si paymentToken es address(0) o vacío, asumimos USDT (facturas antiguas)
                 if (!invoicePaymentToken || invoicePaymentToken === '0x0000000000000000000000000000000000000000') {
-                  return 'USDT'; // Facturas antiguas sin paymentToken
+                  return 'USDT';
                 }
                 
                 const eurtAddress = typeof window !== 'undefined' 
                   ? (process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '').toLowerCase()
                   : '';
                 
+                console.log('Invoice payment currency check:', {
+                  invoiceId: invoice.invoiceId.toString(),
+                  paymentToken: invoice.paymentToken,
+                  paymentTokenLower: invoicePaymentToken,
+                  eurtAddress: eurtAddress,
+                  match: eurtAddress && invoicePaymentToken === eurtAddress
+                });
+                
+                // Si la dirección coincide con EURT, es EURT
                 if (eurtAddress && invoicePaymentToken === eurtAddress) {
                   return 'EURT';
                 }
                 
+                // Por defecto, USDT
                 return 'USDT';
               };
 
               const paymentCurrency = getPaymentCurrency(invoice);
               const amount = formatTokenAmount(invoice.totalAmount, 6);
+              
+              console.log('Displaying invoice:', {
+                invoiceId: invoice.invoiceId.toString(),
+                paymentCurrency,
+                amount,
+                totalAmount: invoice.totalAmount.toString(),
+                paymentToken: invoice.paymentToken
+              });
               
               return (
                 <div
