@@ -338,6 +338,7 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
   const getCompanyInvoices = useCallback(async (companyId: bigint): Promise<Invoice[]> => {
     // getCompanyInvoices requiere msg.sender, necesitamos usar contractWithSigner
     if (!contractWithSigner) {
+      console.warn('getCompanyInvoices: contractWithSigner no está disponible');
       // No lanzar error si no hay wallet conectado, solo retornar array vacío
       // Esto evita errores en consola cuando el componente se carga antes de conectar wallet
       return [];
@@ -346,8 +347,10 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setLoading(true);
     setError(null);
     try {
+      console.log('getCompanyInvoices: Calling contract with companyId:', companyId.toString());
       const invoices = await contractWithSigner.getCompanyInvoices(companyId);
-      return invoices.map((inv: any) => ({
+      console.log('getCompanyInvoices: Raw invoices from contract:', invoices);
+      const mappedInvoices = invoices.map((inv: any) => ({
         invoiceId: BigInt(inv.invoiceId.toString()),
         companyId: BigInt(inv.companyId.toString()),
         customerAddress: inv.customerAddress,
@@ -359,7 +362,10 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
         paymentToken: inv.paymentToken || '0x0000000000000000000000000000000000000000',
         expectedTotalUSDT: BigInt(inv.expectedTotalUSDT?.toString() || '0'),
       }));
+      console.log('getCompanyInvoices: Mapped invoices:', mappedInvoices);
+      return mappedInvoices;
     } catch (err: any) {
+      console.error('getCompanyInvoices: Error:', err);
       setError(err.message || 'Error al obtener facturas');
       throw err;
     } finally {

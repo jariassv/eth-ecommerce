@@ -18,23 +18,29 @@ export default function InvoicesTab({ companyId }: InvoicesTabProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('InvoicesTab useEffect:', { isReady, isConnected, companyId: companyId.toString() });
     if (isReady && isConnected) {
       loadInvoices();
     } else if (!isConnected) {
       setLoadingInvoices(false);
       setError('Debes conectar tu wallet para ver las facturas');
+    } else {
+      console.log('InvoicesTab: Waiting for ready state...');
     }
   }, [companyId, isReady, isConnected]);
 
   const loadInvoices = async () => {
     if (!isReady) {
+      console.log('InvoicesTab: not ready yet');
       return;
     }
 
     try {
       setLoadingInvoices(true);
       setError(null);
+      console.log('InvoicesTab: Loading invoices for companyId:', companyId.toString());
       const companyInvoices = await getCompanyInvoices(companyId);
+      console.log('InvoicesTab: Invoices loaded:', companyInvoices.length, companyInvoices);
       setInvoices(companyInvoices);
     } catch (err: any) {
       console.error('Error loading invoices:', err);
