@@ -71,6 +71,29 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Helper para obtener la dirección del token EURT
+  const getEURTTokenAddress = () => {
+    if (typeof window === 'undefined') return '';
+    return process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '';
+  };
+
+  // Helper para convertir totalAmount a USDT
+  // Si la factura fue pagada en EURT, usamos expectedTotalUSDT si está disponible
+  // Si no, usamos totalAmount directamente (asumiendo que está en USDT)
+  const getAmountInUSDT = (invoice: Invoice): bigint => {
+    const eurtAddress = getEURTTokenAddress().toLowerCase();
+    const invoicePaymentToken = (invoice.paymentToken || '').toLowerCase();
+    
+    // Si la factura fue pagada en EURT y tenemos expectedTotalUSDT, usarlo
+    if (invoicePaymentToken === eurtAddress && invoice.expectedTotalUSDT > 0n) {
+      return invoice.expectedTotalUSDT;
+    }
+    
+    // Si no, usar totalAmount directamente (asumiendo que está en USDT o ya está en la unidad correcta)
+    // Nota: Para facturas antiguas sin paymentToken, asumimos USDT
+    return invoice.totalAmount;
+  };
+
   useEffect(() => {
     if (isReady && isConnected) {
       loadData();
@@ -118,7 +141,13 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
   // Calcular métricas
   const metrics = useMemo(() => {
     const paidInvoices = invoices.filter(inv => inv.isPaid);
-    const totalRevenue = paidInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0n);
+    
+    // Convertir todos los ingresos a USDT para el total
+    const totalRevenue = paidInvoices.reduce((sum, inv) => {
+      const amountInUSDT = getAmountInUSDT(inv);
+      return sum + amountInUSDT;
+    }, 0n);
+    
     const totalCustomers = new Set(paidInvoices.map(inv => inv.customerAddress)).size;
     const totalOrders = paidInvoices.length;
     const averageOrderValue = totalOrders > 0 ? totalRevenue / BigInt(totalOrders) : 0n;
@@ -130,6 +159,7 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
       averageOrderValue,
       pendingInvoices: invoices.filter(inv => !inv.isPaid).length,
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoices]);
 
   // Preparar datos para gráfico de ventas por período
@@ -142,16 +172,19 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
       const dateKey = date.toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
       
       const current = salesMap.get(dateKey) || { sales: 0, count: 0 };
-      // Convertir a USDT (asumiendo 6 decimales)
-      current.sales += Number(inv.totalAmount) / 1e6;
+      // Convertir a USDT usando la función helper
+      const amountInUSDT = getAmountInUSDT(inv);
+      current.sales += Number(amountInUSDT) / 1e6;
       current.count += 1;
       salesMap.set(dateKey, current);
     });
 
-    return Array.from(salesMap.entries())
+    const allData = Array.from(salesMap.entries())
       .map(([date, data]) => ({ date, sales: data.sales, count: data.count }))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .slice(-14); // Últimos 14 días
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Mostrar todos los datos
+    return allData;
   }, [invoices]);
 
   // Preparar datos de productos más vendidos (calculado desde invoiceItems)
@@ -263,7 +296,12 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
           <div className="mb-4">
             <h3 className="text-lg font-bold text-gray-900">Ventas por Período</h3>
-            <p className="text-sm text-gray-500">Últimos 14 días</p>
+            <p className="text-sm text-gray-500">
+              {salesByPeriod.length > 14 
+                ? `Últimos ${salesByPeriod.length} días (mostrando todos los períodos)`
+                : `${salesByPeriod.length} ${salesByPeriod.length === 1 ? 'período' : 'períodos'}`
+              }
+            </p>
           </div>
           {salesByPeriod.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
