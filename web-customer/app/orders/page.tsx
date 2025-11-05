@@ -156,18 +156,7 @@ export default function OrdersPage() {
               }
               
               const amount = formatTokenAmount(invoice.totalAmount, 6);
-              
-              // Debug temporal - remover después de verificar
-              if (invoicePaymentToken && invoicePaymentToken !== '0x0000000000000000000000000000000000000000') {
-                console.log('Invoice currency detection:', {
-                  invoiceId: invoice.invoiceId.toString(),
-                  paymentToken: invoice.paymentToken,
-                  paymentTokenLower: invoicePaymentToken,
-                  eurtAddress: EUR_TOKEN_ADDRESS,
-                  matches: invoicePaymentToken === EUR_TOKEN_ADDRESS,
-                  detectedCurrency: paymentCurrency
-                });
-              }
+              const currencySymbol = paymentCurrency === 'EURT' ? '€' : '$';
               
               return (
                 <div
@@ -198,7 +187,7 @@ export default function OrdersPage() {
                       </div>
                       <div className="text-right">
                         <p className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                          ${amount}
+                          {currencySymbol}{amount}
                         </p>
                         <p className="text-sm text-gray-500">{paymentCurrency}</p>
                         <span
