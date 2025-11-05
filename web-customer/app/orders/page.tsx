@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { Invoice } from '@/lib/contracts';
@@ -8,11 +8,10 @@ import { formatTokenAmount } from '@/lib/ethers';
 import Header from '@/components/Header';
 import Link from 'next/link';
 
-// Helper para obtener la dirección de EURT
-const getEURTAddress = (): string => {
-  if (typeof window === 'undefined') return '';
-  return (process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '').toLowerCase();
-};
+// Helper para obtener la dirección de EURT (consistente con useTokens)
+const EUR_TOKEN_ADDRESS = typeof window !== 'undefined'
+  ? (process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '').toLowerCase()
+  : '';
 
 export default function OrdersPage() {
   const { provider, address, isConnected } = useWallet();
@@ -21,8 +20,6 @@ export default function OrdersPage() {
   const [loadingInvoices, setLoadingInvoices] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Memoizar la dirección de EURT para evitar recalcularla en cada render
-  const eurtAddress = useMemo(() => getEURTAddress(), []);
 
   useEffect(() => {
     if (isConnected && address && isReady) {
@@ -153,12 +150,24 @@ export default function OrdersPage() {
               
               if (invoicePaymentToken && invoicePaymentToken !== '0x0000000000000000000000000000000000000000') {
                 // Comparar con la dirección de EURT
-                if (eurtAddress && invoicePaymentToken === eurtAddress) {
+                if (EUR_TOKEN_ADDRESS && invoicePaymentToken === EUR_TOKEN_ADDRESS) {
                   paymentCurrency = 'EURT';
                 }
               }
               
               const amount = formatTokenAmount(invoice.totalAmount, 6);
+              
+              // Debug temporal - remover después de verificar
+              if (invoicePaymentToken && invoicePaymentToken !== '0x0000000000000000000000000000000000000000') {
+                console.log('Invoice currency detection:', {
+                  invoiceId: invoice.invoiceId.toString(),
+                  paymentToken: invoice.paymentToken,
+                  paymentTokenLower: invoicePaymentToken,
+                  eurtAddress: EUR_TOKEN_ADDRESS,
+                  matches: invoicePaymentToken === EUR_TOKEN_ADDRESS,
+                  detectedCurrency: paymentCurrency
+                });
+              }
               
               return (
                 <div
