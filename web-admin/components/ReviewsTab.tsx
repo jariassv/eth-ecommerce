@@ -34,7 +34,10 @@ export default function ReviewsTab({ companyId }: ReviewsTabProps) {
 
   useEffect(() => {
     if (isReady) {
-      loadReviews();
+      // Solo cargar reviews si no están ya cargados o si el companyId cambió
+      if (productsWithReviews.length === 0) {
+        loadReviews();
+      }
     }
   }, [companyId, isReady]);
 

@@ -107,7 +107,10 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
 
   useEffect(() => {
     if (isReady && isConnected) {
-      loadData();
+      // Solo cargar datos si no están ya cargados o si el companyId cambió
+      if (invoices.length === 0 && products.length === 0) {
+        loadData();
+      }
     } else if (!isConnected) {
       setLoadingData(false);
       setError('Debes conectar tu wallet para ver los analytics');

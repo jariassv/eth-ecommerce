@@ -170,10 +170,18 @@ export default function CompanyPage() {
 
           {/* Tab Content */}
           <div className="p-6">
-            {activeTab === 'analytics' && <AnalyticsTab companyId={companyId} />}
-            {activeTab === 'products' && <ProductsTab companyId={companyId} />}
-            {activeTab === 'invoices' && <InvoicesTab companyId={companyId} />}
-            {activeTab === 'reviews' && <ReviewsTab companyId={companyId} />}
+            <div className={activeTab === 'analytics' ? 'block' : 'hidden'}>
+              <AnalyticsTab companyId={companyId} />
+            </div>
+            <div className={activeTab === 'products' ? 'block' : 'hidden'}>
+              <ProductsTab companyId={companyId} />
+            </div>
+            <div className={activeTab === 'invoices' ? 'block' : 'hidden'}>
+              <InvoicesTab companyId={companyId} />
+            </div>
+            <div className={activeTab === 'reviews' ? 'block' : 'hidden'}>
+              <ReviewsTab companyId={companyId} />
+            </div>
           </div>
         </div>
       </main>
