@@ -104,6 +104,7 @@ export default function TokenPurchase({ walletAddress, onPaymentComplete }: Toke
           <CheckoutForm
             amount={parseFloat(amount)}
             walletAddress={walletAddress}
+            tokenType={tokenType}
             onSuccess={handleCancel}
             onCancel={handleCancel}
             onPaymentComplete={onPaymentComplete}

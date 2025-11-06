@@ -14,6 +14,45 @@ export default function Home() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment') === 'success') {
       setPaymentStatus('success');
+      
+      // Enviar postMessage al parent window si está en un iframe
+      try {
+        if (window.self !== window.top) {
+          const amount = params.get('amount') || '0';
+          const wallet = params.get('wallet') || '';
+          const tokenType = (params.get('tokenType') || 'USDT') as 'USDT' | 'EURT';
+          
+          window.parent.postMessage({
+            type: 'payment-complete',
+            payment: 'success',
+            success: true,
+            amount: parseFloat(amount),
+            walletAddress: wallet,
+            tokenType,
+            source: 'url-redirect'
+          }, '*');
+          
+          // También enviar con el tipo alternativo que espera BuyTokensModal
+          window.parent.postMessage({
+            type: 'TOKEN_PURCHASE_SUCCESS',
+            payment: 'success',
+            success: true,
+            amount: parseFloat(amount),
+            walletAddress: wallet,
+            tokenType
+          }, '*');
+          
+          console.log('✅ postMessage enviado desde URL redirect:', {
+            type: 'payment-complete',
+            amount: parseFloat(amount),
+            walletAddress: wallet,
+            tokenType
+          });
+        }
+      } catch (err) {
+        console.error('Error sending postMessage:', err);
+      }
+      
       // Limpiar la URL
       window.history.replaceState({}, '', window.location.pathname);
     }

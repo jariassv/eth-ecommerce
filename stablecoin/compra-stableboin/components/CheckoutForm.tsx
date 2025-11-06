@@ -10,6 +10,7 @@ import {
 interface CheckoutFormProps {
   amount: number;
   walletAddress: string;
+  tokenType?: 'USDT' | 'EURT'; // Tipo de token para incluir en el mensaje
   onSuccess: () => void;
   onCancel: () => void;
   onPaymentComplete?: () => void; // Callback cuando el pago se completa
@@ -18,6 +19,7 @@ interface CheckoutFormProps {
 export default function CheckoutForm({
   amount,
   walletAddress,
+  tokenType = 'USDT',
   onSuccess,
   onCancel,
   onPaymentComplete,
@@ -49,7 +51,7 @@ export default function CheckoutForm({
       const { error: confirmError } = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          return_url: `${window.location.origin}/?payment=success&amount=${amount}&wallet=${walletAddress}`,
+          return_url: `${window.location.origin}/?payment=success&amount=${amount}&wallet=${walletAddress}&tokenType=${tokenType}`,
         },
         redirect: 'if_required',
       });
@@ -71,13 +73,32 @@ export default function CheckoutForm({
         // Enviar postMessage al parent window si está en un iframe
         try {
           if (window.self !== window.top) {
+            // Enviar mensaje con el tipo que espera BuyTokensModal
             window.parent.postMessage({
               type: 'payment-complete',
               payment: 'success',
               success: true,
               amount,
-              walletAddress
+              walletAddress,
+              tokenType,
+              source: 'checkout-form'
             }, '*');
+            
+            // También enviar con el tipo alternativo para mayor compatibilidad
+            window.parent.postMessage({
+              type: 'TOKEN_PURCHASE_SUCCESS',
+              payment: 'success',
+              success: true,
+              amount,
+              walletAddress,
+              tokenType
+            }, '*');
+            
+            console.log('✅ postMessage enviado al parent window:', {
+              type: 'payment-complete',
+              amount,
+              walletAddress
+            });
           }
         } catch (err) {
           console.error('Error sending postMessage:', err);
