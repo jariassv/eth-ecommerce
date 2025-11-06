@@ -3,6 +3,7 @@
 import { useTokens, SupportedCurrency } from '@/hooks/useTokens';
 import { useWallet } from '@/hooks/useWallet';
 import { formatTokenAmount } from '@/lib/ethers';
+import BuyTokensButton from './BuyTokensButton';
 
 interface CurrencySelectorProps {
   selectedCurrency: SupportedCurrency;
@@ -60,12 +61,19 @@ export default function CurrencySelector({
               )}
             </div>
             {showBalance && usdtToken && (
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-gray-600 space-y-2">
                 <p>Balance: <span className="font-semibold">{usdtToken.balanceFormatted}</span></p>
                 {requiredAmount !== undefined && (
-                  <p className={`mt-1 ${usdtToken.balance >= requiredAmount ? 'text-green-600' : 'text-red-600'}`}>
-                    {usdtToken.balance >= requiredAmount ? '✓ Saldo suficiente' : '✗ Saldo insuficiente'}
-                  </p>
+                  <>
+                    <p className={`${usdtToken.balance >= requiredAmount ? 'text-green-600' : 'text-red-600'}`}>
+                      {usdtToken.balance >= requiredAmount ? '✓ Saldo suficiente' : '✗ Saldo insuficiente'}
+                    </p>
+                    {usdtToken.balance === BigInt(0) && requiredAmount !== undefined && (
+                      <div className="pt-1">
+                        <BuyTokensButton currency="USDT" className="w-full text-xs py-1.5" />
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -90,12 +98,19 @@ export default function CurrencySelector({
               )}
             </div>
             {showBalance && eurtToken && (
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-gray-600 space-y-2">
                 <p>Balance: <span className="font-semibold">{eurtToken.balanceFormatted}</span></p>
                 {requiredAmount !== undefined && (
-                  <p className={`mt-1 ${eurtToken.balance >= requiredAmount ? 'text-green-600' : 'text-red-600'}`}>
-                    {eurtToken.balance >= requiredAmount ? '✓ Saldo suficiente' : '✗ Saldo insuficiente'}
-                  </p>
+                  <>
+                    <p className={`${eurtToken.balance >= requiredAmount ? 'text-green-600' : 'text-red-600'}`}>
+                      {eurtToken.balance >= requiredAmount ? '✓ Saldo suficiente' : '✗ Saldo insuficiente'}
+                    </p>
+                    {eurtToken.balance === BigInt(0) && requiredAmount !== undefined && (
+                      <div className="pt-1">
+                        <BuyTokensButton currency="EURT" className="w-full text-xs py-1.5" />
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -114,11 +129,14 @@ export default function CurrencySelector({
             return (
               <>
                 {!hasSufficientBalance && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg space-y-2">
                     <p className="text-sm text-red-800">
                       <strong>Saldo insuficiente:</strong> Necesitas {formatTokenAmount(requiredAmount, selectedToken.decimals)} {selectedCurrency} 
                       pero tienes {selectedToken.balanceFormatted} {selectedCurrency}
                     </p>
+                    <div className="flex justify-end">
+                      <BuyTokensButton currency={selectedCurrency} className="text-xs py-1.5" />
+                    </div>
                   </div>
                 )}
                 {needsApproval && hasSufficientBalance && (

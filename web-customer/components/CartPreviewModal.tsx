@@ -10,6 +10,7 @@ import { formatTokenAmount } from '@/lib/ethers';
 import { getIPFSImageUrl } from '@/lib/ipfs';
 import { convertUSDTtoEURT } from '@/lib/exchangeRate';
 import { logger } from '@/lib/logger';
+import BuyTokensButton from './BuyTokensButton';
 import PriceConverter from './PriceConverter';
 import CurrencySelector from './CurrencySelector';
 import Link from 'next/link';
@@ -204,8 +205,9 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
 
     // Validar balance
     if (selectedToken.balance < requiredAmount) {
-      setError(`Saldo insuficiente. Necesitas ${formatTokenAmount(requiredAmount, selectedToken.decimals)} ${selectedCurrency} pero tienes ${selectedToken.balanceFormatted} ${selectedCurrency}`);
-      return;
+      const errorMsg = `Saldo insuficiente. Necesitas ${formatTokenAmount(requiredAmount, selectedToken.decimals)} ${selectedCurrency} pero tienes ${selectedToken.balanceFormatted} ${selectedCurrency}`;
+      setError(errorMsg);
+      return; // Detener el proceso, el usuario verá el error y el botón de compra
     }
 
     // Validar y aprobar si es necesario
@@ -313,8 +315,13 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
               <p className="mt-4 text-gray-600">Cargando carrito...</p>
             </div>
           ) : error ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-              <p className="text-red-800 font-semibold">{error}</p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
+              <p className="text-red-800 font-semibold text-center">{error}</p>
+              {error.includes('Saldo insuficiente') && (
+                <div className="flex justify-center">
+                  <BuyTokensButton currency={selectedCurrency} />
+                </div>
+              )}
             </div>
           ) : cartItems.length === 0 ? (
             <div className="text-center py-12">

@@ -12,6 +12,7 @@ import { convertUSDTtoEURT } from '@/lib/exchangeRate';
 import { dispatchCartUpdated } from '@/lib/cartEvents';
 import { logger } from '@/lib/logger';
 import { CONTRACTS } from '@/lib/constants';
+import BuyTokensButton from '@/components/BuyTokensButton';
 import Header from '@/components/Header';
 import CurrencySelector from '@/components/CurrencySelector';
 import PriceConverter from '@/components/PriceConverter';
@@ -414,6 +415,26 @@ export default function CartPage() {
                     />
                   </div>
                 </div>
+
+                {/* Mensaje de error con botón de compra si es saldo insuficiente */}
+                {error && (
+                  <div className={`rounded-lg p-4 space-y-3 ${
+                    error.includes('Saldo insuficiente') 
+                      ? 'bg-red-50 border border-red-200' 
+                      : 'bg-yellow-50 border border-yellow-200'
+                  }`}>
+                    <p className={`text-sm font-semibold ${
+                      error.includes('Saldo insuficiente') ? 'text-red-800' : 'text-yellow-800'
+                    }`}>
+                      {error}
+                    </p>
+                    {error.includes('Saldo insuficiente') && (
+                      <div className="flex justify-end">
+                        <BuyTokensButton currency={selectedCurrency} />
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Botón de checkout */}
                 <button

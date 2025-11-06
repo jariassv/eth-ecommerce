@@ -23,3 +23,11 @@ export const ORACLE_API_URL = typeof window !== 'undefined'
   ? (process.env.NEXT_PUBLIC_ORACLE_API_URL || 'http://localhost:3001')
   : 'http://localhost:3001';
 
+export const PAYMENT_GATEWAY_URL = typeof window !== 'undefined'
+  ? (process.env.NEXT_PUBLIC_PAYMENT_GATEWAY_URL || 'http://localhost:6002')
+  : 'http://localhost:6002';
+
+export const BUY_TOKENS_URL = typeof window !== 'undefined'
+  ? (process.env.NEXT_PUBLIC_BUY_TOKENS_URL || 'http://localhost:6001')
+  : 'http://localhost:6001';
+
