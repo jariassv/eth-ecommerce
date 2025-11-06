@@ -9,6 +9,9 @@ import { CartItem, Product } from '@/lib/contracts';
 import { formatTokenAmount } from '@/lib/ethers';
 import { getIPFSImageUrl } from '@/lib/ipfs';
 import { convertUSDTtoEURT } from '@/lib/exchangeRate';
+import { dispatchCartUpdated } from '@/lib/cartEvents';
+import { logger } from '@/lib/logger';
+import { CONTRACTS } from '@/lib/constants';
 import Header from '@/components/Header';
 import CurrencySelector from '@/components/CurrencySelector';
 import PriceConverter from '@/components/PriceConverter';
@@ -34,9 +37,10 @@ function CartItemRow({
     setRemoving(true);
     try {
       await onRemove();
-    } catch (err: any) {
-      console.error('Error al remover del carrito:', err);
-      alert(err.message || 'Error al remover del carrito');
+    } catch (err: unknown) {
+      logger.error('Error al remover del carrito:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al remover del carrito';
+      alert(errorMessage);
     } finally {
       setRemoving(false);
     }
@@ -109,13 +113,8 @@ function CartItemRow({
   );
 }
 
-const USD_TOKEN_ADDRESS = typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS || '')
-  : '';
-
-const EUR_TOKEN_ADDRESS = typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '')
-  : '';
+const USD_TOKEN_ADDRESS = CONTRACTS.USD_TOKEN;
+const EUR_TOKEN_ADDRESS = CONTRACTS.EUR_TOKEN;
 
 export default function CartPage() {
   const { provider, address, isConnected } = useWallet();
@@ -124,7 +123,7 @@ export default function CartPage() {
   const { rate, rateInfo, loading: loadingRate, error: rateError } = useExchangeRate();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Map<string, Product>>(new Map());
-  const [total, setTotal] = useState<bigint>(0n); // Total en USDT (base)
+  const [total, setTotal] = useState<bigint>(BigInt(0)); // Total en USDT (base)
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingCart, setLoadingCart] = useState(true);
@@ -138,16 +137,16 @@ export default function CartPage() {
 
   // Recargar tokens cuando cambie la moneda seleccionada o el rate
   useEffect(() => {
-    if (address && isReady && total > 0n) {
+    if (address && isReady && total > BigInt(0)) {
       // Calcular requiredAmount según la moneda seleccionada
       if (selectedCurrency === 'EURT' && rate) {
         // Si es EURT y hay rate, convertir el total a EURT
         const requiredAmountEURT = convertUSDTtoEURT(total, rate);
         // Pero loadTokens espera el amount en USDT y el rate, y calcula internamente
-        loadTokens(total, rate);
+        loadTokens(total, rate ?? undefined);
       } else {
         // Para USDT, pasar el total directamente
-        loadTokens(total, rate);
+        loadTokens(total, rate ?? undefined);
       }
     }
   }, [selectedCurrency, rate, total, address, isReady, loadTokens]);
@@ -172,7 +171,7 @@ export default function CartPage() {
           const product = await getProduct(item.productId);
           productsMap.set(item.productId.toString(), product);
         } catch (err) {
-          console.error(`Error loading product ${item.productId}:`, err);
+          logger.error(`Error loading product ${item.productId}:`, err);
         }
       }
       setProducts(productsMap);
@@ -182,9 +181,10 @@ export default function CartPage() {
       setTotal(cartTotal);
       
       // Recargar tokens con el total requerido (no recargar aquí, se recargará cuando cambie la moneda)
-    } catch (err: any) {
-      console.error('Error loading cart:', err);
-      setError(err.message || 'Error al cargar carrito');
+    } catch (err: unknown) {
+      logger.error('Error loading cart:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar carrito';
+      setError(errorMessage);
     } finally {
       setLoadingCart(false);
     }
@@ -199,16 +199,13 @@ export default function CartPage() {
       return;
     }
 
-    // Recalcular requiredAmount y recargar tokens para asegurar validación correcta
+    // Recalcular requiredAmount
     let requiredAmount = total; // Por defecto USDT
     if (selectedCurrency === 'EURT' && rate) {
       requiredAmount = convertUSDTtoEURT(total, rate);
     }
     
-    // Recargar tokens con el amount correcto antes de validar
-    await loadTokens(total, rate);
-    
-    // Obtener token seleccionado después de recargar
+    // Obtener token seleccionado (los tokens ya están cargados por el useEffect)
     const selectedToken = getSelectedToken();
     if (!selectedToken) {
       setError('No se pudo obtener información del token seleccionado');
@@ -221,15 +218,17 @@ export default function CartPage() {
       return;
     }
 
-    // Validar y aprobar si es necesario
-    if (selectedToken.needsApproval || selectedToken.allowance < requiredAmount) {
+    // Validar y aprobar si es necesario - verificar con precisión para evitar aprobaciones innecesarias
+    // Solo aprobar si la allowance es realmente menor que el monto requerido
+    const needsApproval = selectedToken.allowance < requiredAmount;
+    if (needsApproval) {
       setApproving(true);
       setError(null);
       try {
-        await approveToken(selectedCurrency, requiredAmount, total, rate);
-        // Los tokens ya se recargan en approveToken
-      } catch (err: any) {
-        setError(err.message || 'Error al aprobar token');
+        await approveToken(selectedCurrency, requiredAmount, total, rate ?? undefined);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Error al aprobar token';
+        setError(errorMessage);
         setApproving(false);
         return;
       }
@@ -278,8 +277,9 @@ export default function CartPage() {
       const redirectUrl = `${paymentGatewayUrl}/?merchant_address=${merchantAddress}&amount=${amount}&invoice=${invoiceId}&redirect=${encodeURIComponent(window.location.origin + '/orders')}`;
       
       window.location.href = redirectUrl;
-    } catch (err: any) {
-      setError(err.message || 'Error al procesar checkout');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al procesar checkout';
+      setError(errorMessage);
       setProcessing(false);
     }
   };
@@ -363,7 +363,7 @@ export default function CartPage() {
                       onRemove={async () => {
                         await removeFromCart(item.productId);
                         await loadCart();
-                        window.dispatchEvent(new CustomEvent('cartUpdated'));
+                        dispatchCartUpdated();
                       }}
                     />
                   );
@@ -380,9 +380,9 @@ export default function CartPage() {
                       setSelectedCurrency(currency);
                       // Recargar tokens cuando cambie la moneda
                       if (currency === 'EURT' && rate) {
-                        loadTokens(total, rate);
+                        loadTokens(total, rate ?? undefined);
                       } else {
-                        loadTokens(total, rate);
+                        loadTokens(total, rate ?? undefined);
                       }
                     }}
                     requiredAmount={selectedCurrency === 'EURT' && rate ? convertUSDTtoEURT(total, rate) : total}
@@ -418,7 +418,7 @@ export default function CartPage() {
                 {/* Botón de checkout */}
                 <button
                   onClick={handleCheckout}
-                  disabled={processing || loading || approving || loadingRate || (rateInfo && (!rateInfo.isValid || !rateInfo.isFresh))}
+                  disabled={processing || loading || approving || loadingRate || (rateInfo ? (!rateInfo.isValid || !rateInfo.isFresh) : false)}
                   className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/50 transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3"
                 >
                   {approving ? (

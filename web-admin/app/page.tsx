@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
+import { logger } from '@/lib/logger';
 import Link from 'next/link';
 
 export default function Home() {
@@ -34,7 +35,7 @@ export default function Home() {
       const owner = await getOwner();
       setIsOwner(owner.toLowerCase() === address?.toLowerCase());
     } catch (err) {
-      console.error('Error checking owner:', err);
+      logger.error('Error checking owner:', err);
       setIsOwner(false);
       // No mostrar error al usuario si es solo un problema de configuración
     }

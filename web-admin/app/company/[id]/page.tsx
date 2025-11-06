@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
+import { Company } from '@/lib/contracts';
+import { logger } from '@/lib/logger';
 import Header from '@/components/Header';
 import Link from 'next/link';
 import ProductsTab from '@/components/ProductsTab';
@@ -18,7 +20,7 @@ export default function CompanyPage() {
   const { getCompany, getCompanyIdByAddress, loading, isReady } = useEcommerce(provider, address);
   
   const companyId = BigInt(params.id as string);
-  const [company, setCompany] = useState<any>(null);
+  const [company, setCompany] = useState<Company | null>(null);
   const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'invoices' | 'reviews'>('analytics');
   const [isOwner, setIsOwner] = useState<boolean | null>(null);
   const [loadingCompany, setLoadingCompany] = useState(true);
@@ -40,7 +42,7 @@ export default function CompanyPage() {
       const companyData = await getCompany(companyId);
       setCompany(companyData);
     } catch (err) {
-      console.error('Error loading company:', err);
+      logger.error('Error loading company:', err);
     } finally {
       setLoadingCompany(false);
     }

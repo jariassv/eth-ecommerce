@@ -7,6 +7,8 @@ import { useEcommerce } from '@/hooks/useEcommerce';
 import { useWallet } from '@/hooks/useWallet';
 import { useTokens } from '@/hooks/useTokens';
 import { getIPFSImageUrl, getNextIPFSGateway } from '@/lib/ipfs';
+import { logger } from '@/lib/logger';
+import { dispatchCartUpdated } from '@/lib/cartEvents';
 import ProductReviews from './ProductReviews';
 import PriceConverter from './PriceConverter';
 
@@ -73,14 +75,14 @@ export default function ProductDetailModal({
 
     if (nextGatewayIndex === 0) {
       // Ya intentamos todos los gateways
-      console.error(`Todos los gateways IPFS fallaron para imagen ${imageIndex}:`, hash);
+      logger.error(`Todos los gateways IPFS fallaron para imagen ${imageIndex}:`, hash);
       setImageErrors(prev => new Map(prev).set(imageIndex, true));
       img.src = '/placeholder-product.png';
       return;
     }
 
     // Intentar con el siguiente gateway
-    console.log(`Gateway ${currentGatewayIndex} falló para imagen ${imageIndex}, intentando con gateway ${nextGatewayIndex}`);
+    logger.debug(`Gateway ${currentGatewayIndex} falló para imagen ${imageIndex}, intentando con gateway ${nextGatewayIndex}`);
     setImageGatewayIndices(prev => new Map(prev).set(imageIndex, nextGatewayIndex));
     img.src = getIPFSImageUrl(hash, nextGatewayIndex);
   };
@@ -108,7 +110,7 @@ export default function ProductDetailModal({
     setAdding(true);
     try {
       const txHash = await addToCart(product.productId, BigInt(quantity));
-      console.log('Producto agregado al carrito, transacción:', txHash);
+      logger.debug('Producto agregado al carrito, transacción:', txHash);
       
       // Esperar un momento para que la transacción se procese
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -117,12 +119,13 @@ export default function ProductDetailModal({
         onAddToCart();
       }
       // Disparar evento global para actualizar el contador del carrito
-      window.dispatchEvent(new CustomEvent('cartUpdated'));
+      dispatchCartUpdated();
       alert(`Se agregaron ${quantity} unidades al carrito`);
       onClose();
-    } catch (err: any) {
-      console.error('Error al agregar al carrito:', err);
-      alert(err.message || 'Error al agregar al carrito');
+    } catch (err: unknown) {
+      logger.error('Error al agregar al carrito:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al agregar al carrito';
+      alert(errorMessage);
     } finally {
       setAdding(false);
     }

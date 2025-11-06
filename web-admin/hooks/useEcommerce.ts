@@ -12,21 +12,19 @@ import {
   CartItem,
   Review,
 } from '@/lib/contracts';
+import { mapRawProductToProduct, mapRawInvoiceToInvoice, mapRawReviewToReview, mapRawCompanyToCompany } from '@/lib/contractHelpers';
+import { CONTRACTS, RPC_URL } from '@/lib/constants';
+import { logger } from '@/lib/logger';
 
 // Helper para crear un provider si no hay uno disponible
 function getOrCreateProvider(provider: ethers.BrowserProvider | null): ethers.Provider {
   if (provider) {
     return provider;
   }
-  const rpcUrl = typeof window !== 'undefined' 
-    ? (process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545')
-    : 'http://localhost:8545';
-  return new ethers.JsonRpcProvider(rpcUrl);
+  return new ethers.JsonRpcProvider(RPC_URL);
 }
 
-const ECOMMERCE_ADDRESS = typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS || '')
-  : '';
+const ECOMMERCE_ADDRESS = CONTRACTS.ECOMMERCE;
 
 export function useEcommerce(provider: ethers.BrowserProvider | null, address: string | null) {
   const [contract, setContract] = useState<ethers.Contract | null>(null);
@@ -77,7 +75,7 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
         }
         setError(null);
       } catch (err) {
-        console.error('Error initializing contracts:', err);
+        logger.error('Error initializing contracts:', err);
         const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
         setError(`Error al inicializar contratos: ${errorMessage}`);
       } finally {
@@ -106,16 +104,16 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
       
       const owner = await contract.owner();
       return owner;
-    } catch (err: any) {
-      const errorMessage = err.message || 'Error al obtener owner';
-      console.error('Error en getOwner:', errorMessage, err);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener owner';
+      logger.error('Error en getOwner:', errorMessage, err);
       setError(errorMessage);
       throw err;
     }
   }, [contract]);
 
   const registerCompany = useCallback(async (companyAddress: string, name: string, taxId: string): Promise<bigint> => {
-    if (!contractWithSigner) throw new Error('Contrato no inicializado o wallet no conectada');
+    if (!contractWithSigner || !contract) throw new Error('Contrato no inicializado o wallet no conectada');
     
     setLoading(true);
     setError(null);
@@ -141,8 +139,9 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
       // Fallback: buscar por address
       const companyId = await contract.getCompanyIdByAddress(companyAddress);
       return BigInt(companyId.toString());
-    } catch (err: any) {
-      setError(err.message || 'Error al registrar empresa');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al registrar empresa';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -156,15 +155,10 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setError(null);
     try {
       const company = await contract.getCompany(companyId);
-      return {
-        companyId: BigInt(company.companyId.toString()),
-        name: company.name,
-        companyAddress: company.companyAddress,
-        taxId: company.taxId,
-        isActive: company.isActive,
-      };
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener empresa');
+      return mapRawCompanyToCompany(company);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener empresa';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -177,8 +171,9 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     try {
       const companyId = await contract.getCompanyIdByAddress(companyAddress);
       return BigInt(companyId.toString());
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener ID de empresa');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener ID de empresa';
+      setError(errorMessage);
       throw err;
     }
   }, [contract]);
@@ -193,7 +188,7 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     ipfsImageHash: string,
     ipfsAdditionalImages: string[] = []
   ): Promise<bigint> => {
-    if (!contractWithSigner) throw new Error('Contrato no inicializado o wallet no conectada');
+    if (!contractWithSigner || !contract) throw new Error('Contrato no inicializado o wallet no conectada');
     
     setLoading(true);
     setError(null);
@@ -225,8 +220,9 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
       
       // Fallback: buscar el último producto agregado
       throw new Error('No se pudo obtener el ID del producto');
-    } catch (err: any) {
-      setError(err.message || 'Error al agregar producto');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al agregar producto';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -245,8 +241,9 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     try {
       const tx = await contractWithSigner.updateProduct(productId, price, stock);
       await tx.wait();
-    } catch (err: any) {
-      setError(err.message || 'Error al actualizar producto');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al actualizar producto';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -264,8 +261,9 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     try {
       const tx = await contractWithSigner.setProductActive(productId, isActive);
       await tx.wait();
-    } catch (err: any) {
-      setError(err.message || 'Error al cambiar estado del producto');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al cambiar estado del producto';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -280,26 +278,16 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     try {
       const products = await contract.getProductsByCompany(companyId);
       return products.map((p: any) => {
-        const ipfsHash = p.ipfsImageHash || '';
+        const mappedProduct = mapRawProductToProduct(p);
         // Log para debug
-        if (ipfsHash) {
-          console.log('Producto obtenido del contrato:', p.name, 'Hash IPFS:', ipfsHash);
+        if (mappedProduct.ipfsImageHash) {
+          logger.debug('Producto obtenido del contrato:', mappedProduct.name, 'Hash IPFS:', mappedProduct.ipfsImageHash);
         }
-        return {
-          productId: BigInt(p.productId.toString()),
-          companyId: BigInt(p.companyId.toString()),
-          name: p.name,
-          description: p.description,
-          price: BigInt(p.price.toString()),
-          stock: BigInt(p.stock.toString()),
-          ipfsImageHash: ipfsHash,
-          ipfsAdditionalImages: p.ipfsAdditionalImages || [],
-          totalSales: BigInt(p.totalSales.toString()),
-          isActive: p.isActive,
-        };
+        return mappedProduct;
       });
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener productos');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener productos';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -313,20 +301,10 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setError(null);
     try {
       const product = await contract.getProduct(productId);
-      return {
-        productId: BigInt(product.productId.toString()),
-        companyId: BigInt(product.companyId.toString()),
-        name: product.name,
-        description: product.description,
-        price: BigInt(product.price.toString()),
-        stock: BigInt(product.stock.toString()),
-        ipfsImageHash: product.ipfsImageHash,
-        ipfsAdditionalImages: product.ipfsAdditionalImages || [],
-        totalSales: BigInt(product.totalSales.toString()),
-        isActive: product.isActive,
-      };
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener producto');
+      return mapRawProductToProduct(product);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener producto';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -347,26 +325,16 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setLoading(true);
     setError(null);
     try {
-      console.log('getCompanyInvoices: Calling contract with companyId:', companyId.toString());
+      logger.debug('getCompanyInvoices: Calling contract with companyId:', companyId.toString());
       const invoices = await contractWithSigner.getCompanyInvoices(companyId);
-      console.log('getCompanyInvoices: Raw invoices from contract:', invoices);
-      const mappedInvoices = invoices.map((inv: any) => ({
-        invoiceId: BigInt(inv.invoiceId.toString()),
-        companyId: BigInt(inv.companyId.toString()),
-        customerAddress: inv.customerAddress,
-        totalAmount: BigInt(inv.totalAmount.toString()),
-        timestamp: BigInt(inv.timestamp.toString()),
-        isPaid: inv.isPaid,
-        paymentTxHash: inv.paymentTxHash,
-        itemCount: BigInt(inv.itemCount.toString()),
-        paymentToken: inv.paymentToken || '0x0000000000000000000000000000000000000000',
-        expectedTotalUSDT: BigInt(inv.expectedTotalUSDT?.toString() || '0'),
-      }));
-      console.log('getCompanyInvoices: Mapped invoices:', mappedInvoices);
+      logger.debug('getCompanyInvoices: Raw invoices from contract:', invoices);
+      const mappedInvoices = invoices.map((inv: any) => mapRawInvoiceToInvoice(inv));
+      logger.debug('getCompanyInvoices: Mapped invoices:', mappedInvoices);
       return mappedInvoices;
-    } catch (err: any) {
-      console.error('getCompanyInvoices: Error:', err);
-      setError(err.message || 'Error al obtener facturas');
+    } catch (err: unknown) {
+      logger.error('getCompanyInvoices: Error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener facturas';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -380,20 +348,10 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setError(null);
     try {
       const invoice = await contract.getInvoice(invoiceId);
-      return {
-        invoiceId: BigInt(invoice.invoiceId.toString()),
-        companyId: BigInt(invoice.companyId.toString()),
-        customerAddress: invoice.customerAddress,
-        totalAmount: BigInt(invoice.totalAmount.toString()),
-        timestamp: BigInt(invoice.timestamp.toString()),
-        isPaid: invoice.isPaid,
-        paymentTxHash: invoice.paymentTxHash,
-        itemCount: BigInt(invoice.itemCount.toString()),
-        paymentToken: invoice.paymentToken || '0x0000000000000000000000000000000000000000',
-        expectedTotalUSDT: BigInt(invoice.expectedTotalUSDT?.toString() || '0'),
-      };
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener factura');
+      return mapRawInvoiceToInvoice(invoice);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener factura';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -409,8 +367,9 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
         productId: BigInt(item.productId.toString()),
         quantity: BigInt(item.quantity.toString()),
       }));
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener items de factura');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener items de factura';
+      setError(errorMessage);
       throw err;
     }
   }, [contract]);
@@ -422,17 +381,10 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     
     try {
       const reviews = await contract.getProductReviews(productId);
-      return reviews.map((r: any) => ({
-        reviewId: BigInt(r.reviewId.toString()),
-        productId: BigInt(r.productId.toString()),
-        customerAddress: r.customerAddress,
-        rating: BigInt(r.rating.toString()),
-        comment: r.comment,
-        timestamp: BigInt(r.timestamp.toString()),
-        isVerified: r.isVerified,
-      }));
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener reviews');
+      return reviews.map((r: any) => mapRawReviewToReview(r));
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener reviews';
+      setError(errorMessage);
       throw err;
     }
   }, [contract]);
@@ -446,8 +398,9 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
         averageRating: BigInt(result.averageRating.toString()),
         reviewCount: BigInt(result.reviewCount.toString()),
       };
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener rating promedio');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener rating promedio';
+      setError(errorMessage);
       throw err;
     }
   }, [contract]);
@@ -458,8 +411,9 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     try {
       const count = await contract.getProductReviewCount(productId);
       return BigInt(count.toString());
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener cantidad de reviews');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener cantidad de reviews';
+      setError(errorMessage);
       throw err;
     }
   }, [contract]);

@@ -5,7 +5,9 @@ import { formatTokenAmount } from '@/lib/ethers';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { useWallet } from '@/hooks/useWallet';
 import { useTokens } from '@/hooks/useTokens';
-import { getIPFSImageUrl, getNextIPFSGateway } from '@/lib/ipfs';
+import { useIPFSImage } from '@/hooks/useIPFSImage';
+import { dispatchCartUpdated } from '@/lib/cartEvents';
+import { logger } from '@/lib/logger';
 import PriceConverter from './PriceConverter';
 import { useState } from 'react';
 import ProductDetailModal from './ProductDetailModal';
@@ -19,44 +21,13 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
   const { provider, address } = useWallet();
   const { addToCart, loading } = useEcommerce(provider, address);
   const { selectedCurrency } = useTokens(provider, address);
+  const { imageUrl, handleImageError, key } = useIPFSImage(product.ipfsImageHash);
   const [quantity, setQuantity] = useState<number>(1);
   const [adding, setAdding] = useState(false);
-  const [currentGatewayIndex, setCurrentGatewayIndex] = useState(0);
-  const [imageError, setImageError] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
   const price = formatTokenAmount(product.price, 6);
   const hasStock = product.stock > 0n;
-
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const img = e.target as HTMLImageElement;
-    const hash = product.ipfsImageHash?.trim();
-    
-    if (!hash) {
-      img.src = '/placeholder-product.png';
-      return;
-    }
-
-    // Intentar con el siguiente gateway
-    const nextGatewayIndex = getNextIPFSGateway(currentGatewayIndex);
-    
-    if (nextGatewayIndex === 0) {
-      // Ya intentamos todos los gateways, usar placeholder
-      console.error('Todos los gateways IPFS fallaron para:', hash);
-      setImageError(true);
-      img.src = '/placeholder-product.png';
-      return;
-    }
-
-    // Intentar con el siguiente gateway
-    console.log(`Gateway ${currentGatewayIndex} falló, intentando con gateway ${nextGatewayIndex}`);
-    setCurrentGatewayIndex(nextGatewayIndex);
-    img.src = getIPFSImageUrl(hash, nextGatewayIndex);
-  };
-
-  const imageUrl = product.ipfsImageHash && product.ipfsImageHash.trim() && !imageError
-    ? getIPFSImageUrl(product.ipfsImageHash, currentGatewayIndex)
-    : '/placeholder-product.png';
 
   const handleAddToCart = async () => {
     if (!address) {
@@ -72,7 +43,7 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
     setAdding(true);
     try {
       const tx = await addToCart(product.productId, BigInt(quantity));
-      console.log('Producto agregado al carrito, transacción:', tx);
+      logger.debug('Producto agregado al carrito, transacción:', tx);
       
       // Esperar un momento para que la transacción se procese
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -81,11 +52,11 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
         onAddToCart();
       }
       // Disparar evento global para actualizar el contador del carrito
-      window.dispatchEvent(new CustomEvent('cartUpdated'));
+      dispatchCartUpdated();
       alert(`Se agregaron ${quantity} unidades al carrito`);
-    } catch (err: any) {
-      console.error('Error al agregar al carrito:', err);
-      alert(err.message || 'Error al agregar al carrito');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al agregar al carrito';
+      alert(errorMessage);
     } finally {
       setAdding(false);
     }
@@ -97,17 +68,11 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
         {/* Imagen con overlay en hover */}
         <div className="relative overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
           <img
-            key={`${product.productId}-${currentGatewayIndex}`}
+            key={key}
             src={imageUrl}
             alt={product.name}
             className="w-full h-56 object-cover group-hover:scale-110 transition-transform duration-500"
             onError={handleImageError}
-            onLoad={() => {
-              if (product.ipfsImageHash && currentGatewayIndex > 0) {
-                console.log(`Imagen IPFS cargada correctamente con gateway ${currentGatewayIndex}:`, product.ipfsImageHash);
-              }
-              setImageError(false);
-            }}
           />
         {/* Badge de stock */}
         <div className="absolute top-3 right-3">
