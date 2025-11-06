@@ -5,7 +5,7 @@ import { SupportedCurrency } from '@/hooks/useTokens';
 import { BUY_TOKENS_URL } from '@/lib/constants';
 import { useTokens } from '@/hooks/useTokens';
 import { useWallet } from '@/hooks/useWallet';
-import { dispatchCartUpdated } from '@/lib/cartEvents';
+import { dispatchCartUpdated, dispatchTokenBalanceUpdated } from '@/lib/cartEvents';
 import { logger } from '@/lib/logger';
 
 interface BuyTokensModalProps {
@@ -29,37 +29,67 @@ export default function BuyTokensModal({
   const handlePurchaseComplete = useCallback(async () => {
     try {
       setCheckingPayment(true);
+      setPaymentComplete(true);
       
-      // Esperar un momento para que la transacción se confirme
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Esperar a que la pantalla cargue completamente después del pago
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
-      // Recargar tokens para reflejar el nuevo balance
+      // Recargar tokens con polling para asegurar que el balance se actualice
+      // Esperar un poco más para que la transacción de mint se confirme en la blockchain
       if (address && provider) {
+        // Esperar tiempo para que el webhook procese y la transacción se confirme
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        let attempts = 0;
+        const maxAttempts = 8;
+        const pollInterval = 3000; // 3 segundos entre intentos
+        
+        while (attempts < maxAttempts) {
+          try {
+            // Recargar tokens - si hay un total requerido, debería pasarse desde el callback
+            await loadTokens(BigInt(0), undefined);
+            
+            // Disparar evento de actualización después de cada intento exitoso
+            dispatchTokenBalanceUpdated();
+            
+            // Esperar antes de la siguiente verificación
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            attempts++;
+          } catch (err) {
+            logger.debug(`Error en intento ${attempts + 1} de recargar tokens:`, err);
+            attempts++;
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+          }
+        }
+        
+        // Una última recarga y notificación antes de cerrar
         await loadTokens(BigInt(0), undefined);
+        dispatchTokenBalanceUpdated();
       }
       
-      // Disparar evento de actualización del carrito
+      // Disparar eventos de actualización
       dispatchCartUpdated();
+      dispatchTokenBalanceUpdated();
       
       // Llamar callback si existe (esto actualizará el carrito en el componente padre)
       if (onPurchaseComplete) {
         await onPurchaseComplete();
       }
 
-      // Cerrar modal después de un breve delay para mostrar éxito
-      setTimeout(() => {
-        setPaymentComplete(false);
-        setCheckingPayment(false);
-        onClose();
-      }, 2000);
+      // Esperar un poco más para mostrar la confirmación de éxito
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Cerrar modal
+      setPaymentComplete(false);
+      setCheckingPayment(false);
+      onClose();
     } catch (err) {
       logger.error('Error al actualizar tokens después de compra:', err);
-      setCheckingPayment(false);
+      // Aún así, esperar y cerrar el modal
+      await new Promise(resolve => setTimeout(resolve, 2000));
       setPaymentComplete(false);
-      // Aún así, cerrar el modal después de un delay
-      setTimeout(() => {
-        onClose();
-      }, 2000);
+      setCheckingPayment(false);
+      onClose();
     }
   }, [address, provider, loadTokens, onPurchaseComplete, onClose]);
 
@@ -187,13 +217,19 @@ export default function BuyTokensModal({
           {paymentComplete ? (
             <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
               <div className="text-center p-8">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                  <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">¡Compra exitosa!</h3>
-                <p className="text-gray-600">Actualizando tu balance...</p>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">¡Compra exitosa!</h3>
+                <p className="text-lg text-gray-600 mb-4">Actualizando tu balance...</p>
+                {checkingPayment && (
+                  <div className="flex items-center justify-center gap-2 text-gray-500">
+                    <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm">Esperando confirmación de la transacción...</span>
+                  </div>
+                )}
               </div>
             </div>
           ) : (

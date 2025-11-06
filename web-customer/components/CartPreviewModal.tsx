@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { useTokens } from '@/hooks/useTokens';
@@ -10,6 +10,7 @@ import { formatTokenAmount } from '@/lib/ethers';
 import { getIPFSImageUrl } from '@/lib/ipfs';
 import { convertUSDTtoEURT } from '@/lib/exchangeRate';
 import { logger } from '@/lib/logger';
+import { dispatchTokenBalanceUpdated, CART_EVENTS } from '@/lib/cartEvents';
 import BuyTokensButton from './BuyTokensButton';
 import PriceConverter from './PriceConverter';
 import CurrencySelector from './CurrencySelector';
@@ -110,6 +111,7 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
   const [processing, setProcessing] = useState(false);
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isChangingCurrency = useRef(false);
   
   // Calcular si hay saldo insuficiente
   const selectedToken = getSelectedToken();
@@ -177,12 +179,31 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
     }
   };
 
-  // Recargar tokens cuando cambie la moneda seleccionada o el rate
+  // Recargar tokens cuando cambie el rate o el total (pero no cuando cambie selectedCurrency manualmente)
   useEffect(() => {
     if (isOpen && address && isReady && total > 0n) {
+      // Recargar tokens cuando cambie el rate o el total
       loadTokens(total, rate);
     }
-  }, [selectedCurrency, rate, total, address, isReady, isOpen, loadTokens]);
+  }, [rate, total, address, isReady, isOpen, loadTokens]);
+
+  // Escuchar eventos de actualización de balance de tokens
+  useEffect(() => {
+    const handleTokenBalanceUpdate = () => {
+      // Recargar tokens cuando se actualiza el balance
+      if (isOpen && address && isReady && total > 0n) {
+        loadTokens(total, rate).catch(err => {
+          logger.error('Error loading tokens after balance update:', err);
+        });
+      }
+    };
+
+    window.addEventListener(CART_EVENTS.TOKEN_BALANCE_UPDATED, handleTokenBalanceUpdate);
+
+    return () => {
+      window.removeEventListener(CART_EVENTS.TOKEN_BALANCE_UPDATED, handleTokenBalanceUpdate);
+    };
+  }, [isOpen, address, isReady, total, rate, loadTokens]);
 
   const handleCheckout = async () => {
     if (!address || cartItems.length === 0) return;
@@ -210,10 +231,9 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
     }
 
     // Validar balance
+    // No mostrar error, solo prevenir el checkout - el botón de compra ya está visible
     if (selectedToken.balance < requiredAmount) {
-      const errorMsg = `Saldo insuficiente. Necesitas ${formatTokenAmount(requiredAmount, selectedToken.decimals)} ${selectedCurrency} pero tienes ${selectedToken.balanceFormatted} ${selectedCurrency}`;
-      setError(errorMsg);
-      return; // Detener el proceso, el usuario verá el error y el botón de compra
+      return; // Silenciosamente prevenir el checkout
     }
 
     // Validar y aprobar si es necesario
@@ -320,7 +340,7 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
               <p className="mt-4 text-gray-600">Cargando carrito...</p>
             </div>
-          ) : error ? (
+          ) : error && !error.includes('Saldo insuficiente') && !error.includes('No tienes') ? (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <p className="text-red-800 font-semibold text-center">{error}</p>
             </div>
@@ -374,10 +394,16 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
               <CurrencySelector
                 selectedCurrency={selectedCurrency}
                 onCurrencyChange={(currency) => {
+                  // Cambiar moneda inmediatamente - el estado se actualiza de forma sincrónica
                   setSelectedCurrency(currency);
-                  if (total > 0n) {
-                    loadTokens(total, rate);
-                  }
+                  // Recargar tokens después de un pequeño delay para evitar bloqueos
+                  setTimeout(() => {
+                    if (total > 0n) {
+                      loadTokens(total, rate).catch(err => {
+                        logger.error('Error loading tokens after currency change:', err);
+                      });
+                    }
+                  }, 200);
                 }}
                 requiredAmount={selectedCurrency === 'EURT' && rate ? convertUSDTtoEURT(total, rate) : total}
                 showBalance={true}
@@ -409,38 +435,32 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
 
             {/* Botón de checkout único */}
             <div className="space-y-3">
-              {/* Mensaje y botón de compra si hay saldo insuficiente o balance 0 */}
+              {/* Botón de compra solo si hay saldo insuficiente o balance 0 */}
               {(hasInsufficientBalance || hasZeroBalance) && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-sm text-red-800 mb-2">
-                    {hasZeroBalance 
-                      ? `No tienes ${selectedCurrency} en tu wallet. Compra tokens para continuar.`
-                      : selectedToken 
-                        ? `Saldo insuficiente. Necesitas ${formatTokenAmount(requiredAmount, selectedToken.decimals)} ${selectedCurrency} pero tienes ${selectedToken.balanceFormatted} ${selectedCurrency}`
-                        : `No tienes ${selectedCurrency} en tu wallet. Compra tokens para continuar.`
-                    }
-                  </p>
-                  <BuyTokensButton 
-                    currency={selectedCurrency} 
-                    className="w-full"
-                    onPurchaseComplete={async () => {
-                      // Recargar tokens y carrito después de comprar tokens
-                      if (address && provider) {
-                        await loadTokens(total, rate);
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-indigo-800 flex-1">
+                      {hasZeroBalance 
+                        ? `No tienes ${selectedCurrency} en tu wallet.`
+                        : `Saldo insuficiente de ${selectedCurrency}.`
                       }
-                      await loadCart();
-                      if (onCartUpdate) {
-                        onCartUpdate();
-                      }
-                    }}
-                  />
-                </div>
-              )}
-              
-              {/* Mensaje de error si hay otro tipo de error */}
-              {error && !error.includes('Saldo insuficiente') && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                  <p className="text-sm text-yellow-800">{error}</p>
+                    </p>
+                    <BuyTokensButton 
+                      currency={selectedCurrency} 
+                      onPurchaseComplete={async () => {
+                        // Disparar evento de actualización de balance
+                        dispatchTokenBalanceUpdated();
+                        // Recargar tokens y carrito después de comprar tokens
+                        if (address && provider) {
+                          await loadTokens(total, rate);
+                        }
+                        await loadCart();
+                        if (onCartUpdate) {
+                          onCartUpdate();
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               )}
               
