@@ -402,8 +402,9 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
         productId: BigInt(item.productId.toString()),
         quantity: BigInt(item.quantity.toString()),
       }));
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener items de factura');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener items de factura';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);

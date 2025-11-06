@@ -6,6 +6,7 @@ import { useEcommerce } from '@/hooks/useEcommerce';
 import { useIPFS, getIPFSImageUrl } from '@/hooks/useIPFS';
 import { Product } from '@/lib/contracts';
 import { parseTokenAmount } from '@/lib/ethers';
+import { logger } from '@/lib/logger';
 
 interface ProductFormProps {
   companyId: bigint;
@@ -83,9 +84,10 @@ export default function ProductForm({ companyId, product, onClose, onSuccess }: 
       if (imageFile) {
         try {
           ipfsImageHash = await uploadToIPFS(imageFile);
-        } catch (ipfsErr: any) {
+        } catch (ipfsErr: unknown) {
           // Si falla IPFS pero es un error de configuración, permitir continuar sin imagen
-          if (ipfsErr.message?.includes('PINATA_JWT no configurado')) {
+          const errorMessage = ipfsErr instanceof Error ? ipfsErr.message : '';
+          if (errorMessage?.includes('PINATA_JWT no configurado')) {
             setError('Para subir imágenes, debes configurar NEXT_PUBLIC_PINATA_JWT en .env.local. Puedes crear el producto sin imagen por ahora.');
             setProcessing(false);
             return;
@@ -99,8 +101,9 @@ export default function ProductForm({ companyId, product, onClose, onSuccess }: 
         try {
           const uploadPromises = additionalImages.map(file => uploadToIPFS(file));
           additionalHashes = await Promise.all(uploadPromises);
-        } catch (ipfsErr: any) {
-          if (ipfsErr.message?.includes('PINATA_JWT no configurado')) {
+        } catch (ipfsErr: unknown) {
+          const errorMessage = ipfsErr instanceof Error ? ipfsErr.message : '';
+          if (errorMessage?.includes('PINATA_JWT no configurado')) {
             setError('Para subir imágenes, debes configurar NEXT_PUBLIC_PINATA_JWT en .env.local. Puedes crear el producto sin imágenes adicionales por ahora.');
             setProcessing(false);
             return;
@@ -133,9 +136,10 @@ export default function ProductForm({ companyId, product, onClose, onSuccess }: 
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      console.error('Error saving product:', err);
-      setError(err.message || 'Error al guardar producto');
+    } catch (err: unknown) {
+      logger.error('Error saving product:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al guardar producto';
+      setError(errorMessage);
     } finally {
       setProcessing(false);
     }

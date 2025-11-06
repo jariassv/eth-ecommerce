@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getExchangeRate, getRateInfo, isRateValid, isRateFresh } from '@/lib/exchangeRate';
+import { logger } from '@/lib/logger';
 
 export type SupportedCurrency = 'USDT' | 'EURT';
 
@@ -35,9 +36,10 @@ export function useExchangeRate() {
         lastUpdate: info.lastUpdate,
         timeSinceUpdate: info.timeSinceUpdate,
       });
-    } catch (err: any) {
-      console.error('Error loading exchange rate:', err);
-      setError(err.message || 'Error al cargar el rate de conversión');
+    } catch (err: unknown) {
+      logger.error('Error loading exchange rate:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar el rate de conversión';
+      setError(errorMessage);
       setRate(null);
       setRateInfo(null);
     } finally {

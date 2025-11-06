@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { connectWallet, getProvider } from '@/lib/ethers';
+import { logger } from '@/lib/logger';
 
 export function useWallet() {
   const [address, setAddress] = useState<string | null>(null);
@@ -76,10 +77,10 @@ export function useWallet() {
       if (providerInstance) {
         setProvider(providerInstance);
       }
-    } catch (err: any) {
-      const errorMessage = err.message || 'Error al conectar wallet';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al conectar wallet';
       setError(errorMessage);
-      console.error('Error connecting wallet:', err);
+      logger.error('Error connecting wallet:', err);
     } finally {
       setIsConnecting(false);
     }

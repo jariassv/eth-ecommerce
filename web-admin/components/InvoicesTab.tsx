@@ -5,6 +5,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { Invoice } from '@/lib/contracts';
 import { formatTokenAmount } from '@/lib/ethers';
+import { logger } from '@/lib/logger';
 
 interface InvoicesTabProps {
   companyId: bigint;
@@ -56,13 +57,14 @@ export default function InvoicesTab({ companyId }: InvoicesTabProps) {
     try {
       setLoadingInvoices(true);
       setError(null);
-      console.log('InvoicesTab: Loading invoices for companyId:', companyId.toString());
+      logger.debug('InvoicesTab: Loading invoices for companyId:', companyId.toString());
       const companyInvoices = await getCompanyInvoices(companyId);
-      console.log('InvoicesTab: Invoices loaded:', companyInvoices.length, companyInvoices);
+      logger.debug('InvoicesTab: Invoices loaded:', companyInvoices.length, companyInvoices);
       setInvoices(companyInvoices);
-    } catch (err: any) {
-      console.error('Error loading invoices:', err);
-      setError(err.message || 'Error al cargar facturas');
+    } catch (err: unknown) {
+      logger.error('Error loading invoices:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar facturas';
+      setError(errorMessage);
     } finally {
       setLoadingInvoices(false);
     }

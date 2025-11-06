@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { Review, Product } from '@/lib/contracts';
+import { logger } from '@/lib/logger';
 
 interface ReviewsTabProps {
   companyId: bigint;
@@ -79,9 +80,10 @@ export default function ReviewsTab({ companyId }: ReviewsTabProps) {
       );
 
       setProductsWithReviews(productsWithReviewsData);
-    } catch (err: any) {
-      console.error('Error loading reviews:', err);
-      setError(err.message || 'Error al cargar reviews');
+    } catch (err: unknown) {
+      logger.error('Error loading reviews:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar reviews';
+      setError(errorMessage);
     } finally {
       setLoadingReviews(false);
     }

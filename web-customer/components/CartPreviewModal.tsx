@@ -9,6 +9,7 @@ import { CartItem, Product } from '@/lib/contracts';
 import { formatTokenAmount } from '@/lib/ethers';
 import { getIPFSImageUrl } from '@/lib/ipfs';
 import { convertUSDTtoEURT } from '@/lib/exchangeRate';
+import { logger } from '@/lib/logger';
 import PriceConverter from './PriceConverter';
 import CurrencySelector from './CurrencySelector';
 import Link from 'next/link';
@@ -34,9 +35,10 @@ function CartItemRow({
     setRemoving(true);
     try {
       await onRemove();
-    } catch (err: any) {
-      console.error('Error al remover del carrito:', err);
-      alert(err.message || 'Error al remover del carrito');
+    } catch (err: unknown) {
+      logger.error('Error al remover del carrito:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al remover del carrito';
+      alert(errorMessage);
     } finally {
       setRemoving(false);
     }
@@ -146,7 +148,7 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
           const product = await getProduct(item.productId);
           productsMap.set(item.productId.toString(), product);
         } catch (err) {
-          console.error(`Error loading product ${item.productId}:`, err);
+          logger.error(`Error loading product ${item.productId}:`, err);
         }
       }
       setProducts(productsMap);
@@ -159,9 +161,10 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
       if (cartTotal > 0n) {
         await loadTokens(cartTotal, rate);
       }
-    } catch (err: any) {
-      console.error('Error loading cart:', err);
-      setError(err.message || 'Error al cargar carrito');
+    } catch (err: unknown) {
+      logger.error('Error loading cart:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar carrito';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -211,8 +214,9 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
       setError(null);
       try {
         await approveToken(selectedCurrency, requiredAmount, total, rate);
-      } catch (err: any) {
-        setError(err.message || 'Error al aprobar token');
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Error al aprobar token';
+        setError(errorMessage);
         setApproving(false);
         return;
       }
@@ -267,9 +271,10 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
       const redirectUrl = `${paymentGatewayUrl}/?merchant_address=${merchantAddress}&amount=${amount}&invoice=${invoiceId}&redirect=${encodeURIComponent(window.location.origin + '/orders')}`;
       
       window.location.href = redirectUrl;
-    } catch (err: any) {
-      console.error('Error in checkout:', err);
-      setError(err.message || 'Error al procesar checkout');
+    } catch (err: unknown) {
+      logger.error('Error in checkout:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al procesar checkout';
+      setError(errorMessage);
     } finally {
       setProcessing(false);
     }

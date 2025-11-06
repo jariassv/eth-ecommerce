@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
+import { logger } from '@/lib/logger';
 import Link from 'next/link';
 import { ethers } from 'ethers';
 
@@ -66,9 +67,10 @@ export default function RegisterPage() {
       setTimeout(() => {
         router.push(`/company/${companyId.toString()}`);
       }, 2000);
-    } catch (err: any) {
-      console.error('Error registering company:', err);
-      alert(err.message || 'Error al registrar empresa');
+    } catch (err: unknown) {
+      logger.error('Error registering company:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al registrar empresa';
+      alert(errorMessage);
     } finally {
       setProcessing(false);
     }

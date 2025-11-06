@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
+import { logger } from '@/lib/logger';
 import { connectWallet, getProvider } from '@/lib/ethers';
 
 export function useWallet() {
@@ -80,8 +81,8 @@ export function useWallet() {
       const providerInstance = await getProvider();
       setProvider(providerInstance);
       setIsConnected(true);
-    } catch (err: any) {
-      console.error('Error connecting wallet:', err);
+    } catch (err: unknown) {
+      logger.error('Error connecting wallet:', err);
       throw err;
     }
   };

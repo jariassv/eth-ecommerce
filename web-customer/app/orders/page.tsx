@@ -5,6 +5,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { Invoice } from '@/lib/contracts';
 import { formatTokenAmount } from '@/lib/ethers';
+import { logger } from '@/lib/logger';
 import Header from '@/components/Header';
 import Link from 'next/link';
 
@@ -47,9 +48,10 @@ export default function OrdersPage() {
         return 0;
       });
       setInvoices(allInvoices);
-    } catch (err: any) {
-      console.error('Error loading invoices:', err);
-      setError(err.message || 'Error al cargar facturas');
+    } catch (err: unknown) {
+      logger.error('Error loading invoices:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar facturas';
+      setError(errorMessage);
     } finally {
       setLoadingInvoices(false);
     }

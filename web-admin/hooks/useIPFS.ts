@@ -59,8 +59,8 @@ export function useIPFS() {
 
       const data: PinataResponse = await response.json();
       return data.IpfsHash;
-    } catch (err: any) {
-      const errorMessage = err.message || 'Error al subir imagen a IPFS';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al subir imagen a IPFS';
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -75,8 +75,8 @@ export function useIPFS() {
     try {
       const hashes = await Promise.all(files.map(file => uploadToIPFS(file)));
       return hashes;
-    } catch (err: any) {
-      const errorMessage = err.message || 'Error al subir imágenes a IPFS';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al subir imágenes a IPFS';
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {

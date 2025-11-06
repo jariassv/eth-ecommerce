@@ -5,6 +5,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { Invoice, Product } from '@/lib/contracts';
 import { formatTokenAmount } from '@/lib/ethers';
+import { logger } from '@/lib/logger';
 import {
   LineChart,
   Line,
@@ -138,14 +139,15 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
           const items = await getInvoiceItems(invoice.invoiceId);
           itemsMap.set(invoice.invoiceId, items);
         } catch (err) {
-          console.error(`Error loading items for invoice ${invoice.invoiceId}:`, err);
+          logger.error(`Error loading items for invoice ${invoice.invoiceId}:`, err);
         }
       }
       
       setInvoiceItemsMap(itemsMap);
-    } catch (err: any) {
-      console.error('Error loading analytics data:', err);
-      setError(err.message || 'Error al cargar datos de analytics');
+    } catch (err: unknown) {
+      logger.error('Error loading analytics data:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar datos de analytics';
+      setError(errorMessage);
     } finally {
       setLoadingData(false);
     }
@@ -389,7 +391,7 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
                 <Tooltip
                   formatter={(value: number, name: string, props: any) => [
                     `$${value.toFixed(2)}`,
-                    `Ingresos (Cantidad: ${props.payload.quantity})`
+                    `Ingresos (Cantidad: ${props.payload?.quantity || 0})`
                   ]}
                   labelStyle={{ color: '#374151', fontWeight: 'bold' }}
                   contentStyle={{ 

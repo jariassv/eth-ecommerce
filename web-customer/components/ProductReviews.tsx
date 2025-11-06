@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Review, Product } from '@/lib/contracts';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { useWallet } from '@/hooks/useWallet';
+import { logger } from '@/lib/logger';
 
 interface ProductReviewsProps {
   product: Product;
@@ -47,9 +48,10 @@ export default function ProductReviews({ product, onReviewAdded }: ProductReview
         return 0;
       });
       setReviews(productReviews);
-    } catch (err: any) {
-      console.error('Error loading reviews:', err);
-      setError(err.message || 'Error al cargar reviews');
+    } catch (err: unknown) {
+      logger.error('Error loading reviews:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar reviews';
+      setError(errorMessage);
     } finally {
       setLoadingReviews(false);
     }
@@ -92,10 +94,11 @@ export default function ProductReviews({ product, onReviewAdded }: ProductReview
         onReviewAdded();
       }
       alert('¡Review agregado exitosamente!');
-    } catch (err: any) {
-      console.error('Error submitting review:', err);
-      setError(err.message || 'Error al agregar review');
-      alert(err.message || 'Error al agregar review');
+    } catch (err: unknown) {
+      logger.error('Error submitting review:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al agregar review';
+      setError(errorMessage);
+      alert(errorMessage);
     } finally {
       setSubmitting(false);
     }
