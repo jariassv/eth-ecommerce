@@ -453,6 +453,7 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
                 )}
               </button>
             </div>
+            </div>
           </div>
         )}
       </div>
