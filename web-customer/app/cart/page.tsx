@@ -416,37 +416,35 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                {/* Mensaje de error con botón de compra si es saldo insuficiente */}
-                {error && (
-                  <div className={`rounded-lg p-4 space-y-3 ${
-                    error.includes('Saldo insuficiente') 
-                      ? 'bg-red-50 border border-red-200' 
-                      : 'bg-yellow-50 border border-yellow-200'
-                  }`}>
-                    <p className={`text-sm font-semibold ${
-                      error.includes('Saldo insuficiente') ? 'text-red-800' : 'text-yellow-800'
-                    }`}>
-                      {error}
-                    </p>
-                    {error.includes('Saldo insuficiente') && (
-                      <div className="flex justify-end">
-                        <BuyTokensButton 
-                          currency={selectedCurrency}
-                          onPurchaseComplete={async () => {
-                            // Recargar carrito y tokens después de compra
-                            await loadCart();
-                            if (address && isReady && total > BigInt(0)) {
-                              const selectedToken = getSelectedToken();
-                              if (selectedToken) {
-                                await loadTokens(total, rate ?? undefined);
-                              }
+                {/* Botón de checkout con mensaje de error si es necesario */}
+                <div className="space-y-3">
+                  {/* Mensaje de error si hay saldo insuficiente */}
+                  {error && error.includes('Saldo insuficiente') && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
+                      <p className="text-sm font-semibold text-red-800">{error}</p>
+                      <BuyTokensButton 
+                        currency={selectedCurrency}
+                        className="w-full"
+                        onPurchaseComplete={async () => {
+                          // Recargar carrito y tokens después de compra
+                          await loadCart();
+                          if (address && isReady && total > BigInt(0)) {
+                            const selectedToken = getSelectedToken();
+                            if (selectedToken) {
+                              await loadTokens(total, rate ?? undefined);
                             }
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Otros errores (no saldo insuficiente) */}
+                  {error && !error.includes('Saldo insuficiente') && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <p className="text-sm font-semibold text-yellow-800">{error}</p>
+                    </div>
+                  )}
 
                 {/* Botón de checkout */}
                 <button
@@ -473,6 +471,7 @@ export default function CartPage() {
                     </>
                   )}
                 </button>
+                </div>
               </div>
             </div>
           </div>

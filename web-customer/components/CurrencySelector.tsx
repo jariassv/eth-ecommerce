@@ -43,9 +43,12 @@ export default function CurrencySelector({
         </label>
         <div className="grid grid-cols-2 gap-3">
           {/* USDT Option */}
-          <button
-            onClick={() => onCurrencyChange('USDT')}
-            disabled={!usdtToken}
+          <div
+            onClick={() => {
+              if (usdtToken) {
+                onCurrencyChange('USDT');
+              }
+            }}
             className={`p-4 rounded-lg border-2 transition-all ${
               selectedCurrency === 'USDT'
                 ? 'border-indigo-600 bg-indigo-50'
@@ -61,37 +64,24 @@ export default function CurrencySelector({
               )}
             </div>
             {showBalance && usdtToken && (
-              <div className="text-sm text-gray-600 space-y-2">
+              <div className="text-sm text-gray-600">
                 <p>Balance: <span className="font-semibold">{usdtToken.balanceFormatted}</span></p>
                 {requiredAmount !== undefined && (
-                  <>
-                    <p className={`${usdtToken.balance >= requiredAmount ? 'text-green-600' : 'text-red-600'}`}>
-                      {usdtToken.balance >= requiredAmount ? '✓ Saldo suficiente' : '✗ Saldo insuficiente'}
-                    </p>
-                    {usdtToken.balance === BigInt(0) && requiredAmount !== undefined && (
-                      <div className="pt-1">
-                        <BuyTokensButton 
-                          currency="USDT" 
-                          className="w-full text-xs py-1.5"
-                          onPurchaseComplete={async () => {
-                            // Recargar tokens después de compra
-                            if (address && provider) {
-                              await loadTokens(requiredAmount, undefined);
-                            }
-                          }}
-                        />
-                      </div>
-                    )}
-                  </>
+                  <p className={`mt-1 ${usdtToken.balance >= requiredAmount ? 'text-green-600' : 'text-red-600'}`}>
+                    {usdtToken.balance >= requiredAmount ? '✓ Saldo suficiente' : '✗ Saldo insuficiente'}
+                  </p>
                 )}
               </div>
             )}
-          </button>
+          </div>
 
           {/* EURT Option */}
-          <button
-            onClick={() => onCurrencyChange('EURT')}
-            disabled={!eurtToken}
+          <div
+            onClick={() => {
+              if (eurtToken) {
+                onCurrencyChange('EURT');
+              }
+            }}
             className={`p-4 rounded-lg border-2 transition-all ${
               selectedCurrency === 'EURT'
                 ? 'border-indigo-600 bg-indigo-50'
@@ -107,32 +97,16 @@ export default function CurrencySelector({
               )}
             </div>
             {showBalance && eurtToken && (
-              <div className="text-sm text-gray-600 space-y-2">
+              <div className="text-sm text-gray-600">
                 <p>Balance: <span className="font-semibold">{eurtToken.balanceFormatted}</span></p>
                 {requiredAmount !== undefined && (
-                  <>
-                    <p className={`${eurtToken.balance >= requiredAmount ? 'text-green-600' : 'text-red-600'}`}>
-                      {eurtToken.balance >= requiredAmount ? '✓ Saldo suficiente' : '✗ Saldo insuficiente'}
-                    </p>
-                    {eurtToken.balance === BigInt(0) && requiredAmount !== undefined && (
-                      <div className="pt-1">
-                        <BuyTokensButton 
-                          currency="EURT" 
-                          className="w-full text-xs py-1.5"
-                          onPurchaseComplete={async () => {
-                            // Recargar tokens después de compra
-                            if (address && provider) {
-                              await loadTokens(requiredAmount, undefined);
-                            }
-                          }}
-                        />
-                      </div>
-                    )}
-                  </>
+                  <p className={`mt-1 ${eurtToken.balance >= requiredAmount ? 'text-green-600' : 'text-red-600'}`}>
+                    {eurtToken.balance >= requiredAmount ? '✓ Saldo suficiente' : '✗ Saldo insuficiente'}
+                  </p>
                 )}
               </div>
             )}
-          </button>
+          </div>
         </div>
       </div>
 
@@ -147,23 +121,11 @@ export default function CurrencySelector({
             return (
               <>
                 {!hasSufficientBalance && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg space-y-2">
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                     <p className="text-sm text-red-800">
                       <strong>Saldo insuficiente:</strong> Necesitas {formatTokenAmount(requiredAmount, selectedToken.decimals)} {selectedCurrency} 
                       pero tienes {selectedToken.balanceFormatted} {selectedCurrency}
                     </p>
-                    <div className="flex justify-end">
-                      <BuyTokensButton 
-                        currency={selectedCurrency} 
-                        className="text-xs py-1.5"
-                        onPurchaseComplete={async () => {
-                          // Recargar tokens después de compra
-                          if (address && provider && requiredAmount !== undefined) {
-                            await loadTokens(requiredAmount, undefined);
-                          }
-                        }}
-                      />
-                    </div>
                   </div>
                 )}
                 {needsApproval && hasSufficientBalance && (

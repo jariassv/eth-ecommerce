@@ -315,22 +315,8 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
               <p className="mt-4 text-gray-600">Cargando carrito...</p>
             </div>
           ) : error ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <p className="text-red-800 font-semibold text-center">{error}</p>
-              {error.includes('Saldo insuficiente') && (
-                <div className="flex justify-center">
-                  <BuyTokensButton 
-                    currency={selectedCurrency} 
-                    onPurchaseComplete={async () => {
-                      // Recargar el carrito después de comprar tokens
-                      await loadCart();
-                      if (onCartUpdate) {
-                        onCartUpdate();
-                      }
-                    }}
-                  />
-                </div>
-              )}
             </div>
           ) : cartItems.length === 0 ? (
             <div className="text-center py-12">
@@ -415,7 +401,25 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
               />
             </div>
 
-            {/* Botones */}
+            {/* Botón de checkout único */}
+            <div className="space-y-3">
+              {/* Mensaje de error si hay saldo insuficiente */}
+              {error && error.includes('Saldo insuficiente') && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-800 mb-2">{error}</p>
+                  <BuyTokensButton 
+                    currency={selectedCurrency} 
+                    className="w-full"
+                    onPurchaseComplete={async () => {
+                      // Recargar el carrito después de comprar tokens
+                      await loadCart();
+                      if (onCartUpdate) {
+                        onCartUpdate();
+                      }
+                    }}
+                  />
+                </div>
+              )}
             <div className="flex gap-3">
               <Link
                 href="/cart"
