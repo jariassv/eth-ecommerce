@@ -24,6 +24,35 @@ function getOrCreateProvider(provider: ethers.BrowserProvider | null): ethers.Pr
   return new ethers.JsonRpcProvider(RPC_URL);
 }
 
+// Helper para detectar si un error es un error de RPC esperado (red no sincronizada, etc)
+function isExpectedRPCError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  
+  // Verificar si es un error de ethers.js con código de error RPC
+  if ('code' in err && typeof err.code === 'string') {
+    // Errores de red común cuando la red local está iniciando
+    if (err.code === 'UNKNOWN_ERROR' || err.code === 'NETWORK_ERROR' || err.code === 'TIMEOUT') {
+      return true;
+    }
+  }
+  
+  // Verificar si el mensaje contiene errores de bloque fuera de rango
+  const message = 'message' in err && typeof err.message === 'string' ? err.message : '';
+  const errorString = JSON.stringify(err);
+  
+  if (
+    message.includes('BlockOutOfRangeError') ||
+    message.includes('block height') ||
+    message.includes('block number') ||
+    errorString.includes('BlockOutOfRangeError') ||
+    errorString.includes('-32602') // Invalid params error code
+  ) {
+    return true;
+  }
+  
+  return false;
+}
+
 const ECOMMERCE_ADDRESS = CONTRACTS.ECOMMERCE;
 
 export function useEcommerce(provider: ethers.BrowserProvider | null, address: string | null) {
@@ -75,9 +104,17 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
         }
         setError(null);
       } catch (err) {
-        logger.error('Error initializing contracts:', err);
-        const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
-        setError(`Error al inicializar contratos: ${errorMessage}`);
+        // Si es un error esperado de RPC (red no sincronizada, etc), usar warn en lugar de error
+        if (isExpectedRPCError(err)) {
+          logger.warn('Red no sincronizada o contrato aún no disponible. Esto es normal durante el inicio de la red local.');
+          logger.debug('Detalles del error RPC:', err);
+          // No establecer error en el estado para no molestar al usuario con errores esperados
+          setError(null);
+        } else {
+          logger.error('Error initializing contracts:', err);
+          const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+          setError(`Error al inicializar contratos: ${errorMessage}`);
+        }
       } finally {
         setIsInitializing(false);
       }
@@ -105,6 +142,14 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
       const owner = await contract.owner();
       return owner;
     } catch (err: unknown) {
+      // Si es un error esperado de RPC, usar warn y no establecer error en estado
+      if (isExpectedRPCError(err)) {
+        logger.warn('No se pudo obtener el owner del contrato. La red puede estar iniciando.');
+        logger.debug('Detalles del error RPC:', err);
+        setError(null);
+        throw new Error('Contrato no disponible. La red local puede estar iniciando.');
+      }
+      
       const errorMessage = err instanceof Error ? err.message : 'Error al obtener owner';
       logger.error('Error en getOwner:', errorMessage, err);
       setError(errorMessage);
