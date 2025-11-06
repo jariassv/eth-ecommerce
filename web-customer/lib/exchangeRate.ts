@@ -1,8 +1,6 @@
 import { ethers } from 'ethers';
-
-const ORACLE_API_URL = typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_ORACLE_API_URL || 'http://localhost:3001')
-  : 'http://localhost:3001';
+import { ORACLE_API_URL } from './constants';
+import { logger } from './logger';
 
 /**
  * Obtener el rate EUR/USD desde la API del oráculo
@@ -18,7 +16,7 @@ export async function getExchangeRate(): Promise<number> {
     // El rate viene en formato 6 decimales (ej: 1100000 = 1.10)
     return Number(data.rate) / 1e6;
   } catch (error) {
-    console.error('Error fetching exchange rate from API:', error);
+    logger.error('Error fetching exchange rate from API:', error);
     throw error;
   }
 }
@@ -46,7 +44,7 @@ export async function getRateInfo(): Promise<{
       timeSinceUpdate: Number(data.timeSinceUpdate),
     };
   } catch (error) {
-    console.error('Error fetching rate info from API:', error);
+    logger.error('Error fetching rate info from API:', error);
     throw error;
   }
 }

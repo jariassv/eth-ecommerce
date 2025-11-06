@@ -4,18 +4,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { ERC20_ABI } from '@/lib/contracts';
 import { formatTokenAmount } from '@/lib/ethers';
+import { CONTRACTS } from '@/lib/constants';
+import { logger } from '@/lib/logger';
 
-const USD_TOKEN_ADDRESS = typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS || '')
-  : '';
-
-const EUR_TOKEN_ADDRESS = typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '')
-  : '';
-
-const ECOMMERCE_ADDRESS = typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS || '')
-  : '';
+const USD_TOKEN_ADDRESS = CONTRACTS.USD_TOKEN;
+const EUR_TOKEN_ADDRESS = CONTRACTS.EUR_TOKEN;
+const ECOMMERCE_ADDRESS = CONTRACTS.ECOMMERCE;
 
 export type SupportedCurrency = 'USDT' | 'EURT';
 
@@ -143,7 +137,7 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
           }
           tokensMap.set('USDT', usdtInfo);
         } catch (err) {
-          console.error('Error loading USDT info:', err);
+          logger.error('Error loading USDT info:', err);
         }
       }
 
@@ -165,14 +159,15 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
           }
           tokensMap.set('EURT', eurtInfo);
         } catch (err) {
-          console.error('Error loading EURT info:', err);
+          logger.error('Error loading EURT info:', err);
         }
       }
 
       setTokens(tokensMap);
-    } catch (err: any) {
-      console.error('Error loading tokens:', err);
-      setError(err.message || 'Error al cargar información de tokens');
+    } catch (err: unknown) {
+      logger.error('Error loading tokens:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar información de tokens';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -205,11 +200,12 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
       }
       
       return receipt.hash;
-    } catch (err: any) {
-      if (err.code === 4001) {
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'code' in err && err.code === 4001) {
         throw new Error('Transacción rechazada por el usuario');
       }
-      setError(err.message || `Error al aprobar ${currency}`);
+      const errorMessage = err instanceof Error ? err.message : `Error al aprobar ${currency}`;
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);

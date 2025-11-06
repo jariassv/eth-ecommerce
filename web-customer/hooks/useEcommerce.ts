@@ -11,21 +11,19 @@ import {
   Invoice,
   Review,
 } from '@/lib/contracts';
+import { mapRawProductToProduct, mapRawInvoiceToInvoice, mapRawReviewToReview } from '@/lib/contractHelpers';
+import { CONTRACTS, RPC_URL } from '@/lib/constants';
+import { logger } from '@/lib/logger';
 
 // Helper para crear un provider si no hay uno disponible
 function getOrCreateProvider(provider: ethers.BrowserProvider | null): ethers.Provider {
   if (provider) {
     return provider;
   }
-  const rpcUrl = typeof window !== 'undefined' 
-    ? (process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545')
-    : 'http://localhost:8545';
-  return new ethers.JsonRpcProvider(rpcUrl);
+  return new ethers.JsonRpcProvider(RPC_URL);
 }
 
-const ECOMMERCE_ADDRESS = typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS || '')
-  : '';
+const ECOMMERCE_ADDRESS = CONTRACTS.ECOMMERCE;
 
 export function useEcommerce(provider: ethers.BrowserProvider | null, address: string | null) {
   const [contract, setContract] = useState<ethers.Contract | null>(null);
@@ -65,7 +63,7 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
         }
         setError(null);
       } catch (err) {
-        console.error('Error initializing contracts:', err);
+        logger.error('Error initializing contracts:', err);
         setError('Error al inicializar contratos: ' + (err instanceof Error ? err.message : 'Error desconocido'));
       } finally {
         setIsInitializing(false);
@@ -83,20 +81,10 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setError(null);
     try {
       const products = await contract.getAllActiveProducts();
-      return products.map((p: any) => ({
-        productId: BigInt(p.productId.toString()),
-        companyId: BigInt(p.companyId.toString()),
-        name: p.name,
-        description: p.description,
-        price: BigInt(p.price.toString()),
-        stock: BigInt(p.stock.toString()),
-        ipfsImageHash: p.ipfsImageHash,
-        ipfsAdditionalImages: p.ipfsAdditionalImages || [],
-        totalSales: BigInt(p.totalSales.toString()),
-        isActive: p.isActive,
-      }));
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener productos');
+      return products.map((p: any) => mapRawProductToProduct(p));
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener productos';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -110,20 +98,10 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setError(null);
     try {
       const product = await contract.getProduct(productId);
-      return {
-        productId: BigInt(product.productId.toString()),
-        companyId: BigInt(product.companyId.toString()),
-        name: product.name,
-        description: product.description,
-        price: BigInt(product.price.toString()),
-        stock: BigInt(product.stock.toString()),
-        ipfsImageHash: product.ipfsImageHash,
-        ipfsAdditionalImages: product.ipfsAdditionalImages || [],
-        totalSales: BigInt(product.totalSales.toString()),
-        isActive: product.isActive,
-      };
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener producto');
+      return mapRawProductToProduct(product);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener producto';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -146,8 +124,9 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
         productId: BigInt(item.productId.toString()),
         quantity: BigInt(item.quantity.toString()),
       }));
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener carrito');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener carrito';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -160,18 +139,19 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setLoading(true);
     setError(null);
     try {
-      console.log('Agregando al carrito:', { productId: productId.toString(), quantity: quantity.toString() });
+      logger.debug('Agregando al carrito:', { productId: productId.toString(), quantity: quantity.toString() });
       const tx = await contractWithSigner.addToCart(productId, quantity);
-      console.log('Transacción enviada:', tx.hash);
+      logger.debug('Transacción enviada:', tx.hash);
       const receipt = await tx.wait();
-      console.log('Transacción confirmada:', receipt);
+      logger.debug('Transacción confirmada:', receipt);
       return receipt.hash;
-    } catch (err: any) {
-      console.error('Error en addToCart:', err);
-      if (err.code === 4001) {
+    } catch (err: unknown) {
+      logger.error('Error en addToCart:', err);
+      if (err && typeof err === 'object' && 'code' in err && err.code === 4001) {
         throw new Error('Transacción rechazada por el usuario');
       }
-      setError(err.message || 'Error al agregar al carrito');
+      const errorMessage = err instanceof Error ? err.message : 'Error al agregar al carrito';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -184,18 +164,19 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setLoading(true);
     setError(null);
     try {
-      console.log('Removiendo del carrito:', { productId: productId.toString() });
+      logger.debug('Removiendo del carrito:', { productId: productId.toString() });
       const tx = await contractWithSigner.removeFromCart(productId);
-      console.log('Transacción enviada:', tx.hash);
+      logger.debug('Transacción enviada:', tx.hash);
       const receipt = await tx.wait();
-      console.log('Transacción confirmada:', receipt);
+      logger.debug('Transacción confirmada:', receipt);
       return receipt.hash;
-    } catch (err: any) {
-      console.error('Error en removeFromCart:', err);
-      if (err.code === 4001) {
+    } catch (err: unknown) {
+      logger.error('Error en removeFromCart:', err);
+      if (err && typeof err === 'object' && 'code' in err && err.code === 4001) {
         throw new Error('Transacción rechazada por el usuario');
       }
-      setError(err.message || 'Error al remover del carrito');
+      const errorMessage = err instanceof Error ? err.message : 'Error al remover del carrito';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -208,18 +189,19 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setLoading(true);
     setError(null);
     try {
-      console.log('Actualizando item del carrito:', { productId: productId.toString(), quantity: quantity.toString() });
+      logger.debug('Actualizando item del carrito:', { productId: productId.toString(), quantity: quantity.toString() });
       const tx = await contractWithSigner.updateCartItem(productId, quantity);
-      console.log('Transacción enviada:', tx.hash);
+      logger.debug('Transacción enviada:', tx.hash);
       const receipt = await tx.wait();
-      console.log('Transacción confirmada:', receipt);
+      logger.debug('Transacción confirmada:', receipt);
       return receipt.hash;
-    } catch (err: any) {
-      console.error('Error en updateCartItem:', err);
-      if (err.code === 4001) {
+    } catch (err: unknown) {
+      logger.error('Error en updateCartItem:', err);
+      if (err && typeof err === 'object' && 'code' in err && err.code === 4001) {
         throw new Error('Transacción rechazada por el usuario');
       }
-      setError(err.message || 'Error al actualizar item del carrito');
+      const errorMessage = err instanceof Error ? err.message : 'Error al actualizar item del carrito';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -234,11 +216,12 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     try {
       const tx = await contractWithSigner.clearCart();
       await tx.wait();
-    } catch (err: any) {
-      if (err.code === 4001) {
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'code' in err && err.code === 4001) {
         throw new Error('Transacción rechazada por el usuario');
       }
-      setError(err.message || 'Error al limpiar carrito');
+      const errorMessage = err instanceof Error ? err.message : 'Error al limpiar carrito';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -256,8 +239,9 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     try {
       const total = await contractWithSigner.getCartTotal();
       return BigInt(total.toString());
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener total del carrito');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener total del carrito';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -303,11 +287,12 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
       }
 
       throw new Error('No se pudo obtener el ID de la factura creada');
-    } catch (err: any) {
-      if (err.code === 4001) {
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'code' in err && err.code === 4001) {
         throw new Error('Transacción rechazada por el usuario');
       }
-      setError(err.message || 'Error al crear factura');
+      const errorMessage = err instanceof Error ? err.message : 'Error al crear factura';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -356,11 +341,12 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
       }
 
       throw new Error('No se pudo obtener el ID de la factura creada');
-    } catch (err: any) {
-      if (err.code === 4001) {
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'code' in err && err.code === 4001) {
         throw new Error('Transacción rechazada por el usuario');
       }
-      setError(err.message || 'Error al crear factura');
+      const errorMessage = err instanceof Error ? err.message : 'Error al crear factura';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -377,21 +363,11 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setError(null);
     try {
       const invoices = await contractWithSigner.getMyInvoices();
-      return invoices.map((inv: any) => ({
-        invoiceId: BigInt(inv.invoiceId.toString()),
-        companyId: BigInt(inv.companyId.toString()),
-        customerAddress: inv.customerAddress,
-        totalAmount: BigInt(inv.totalAmount.toString()),
-        timestamp: BigInt(inv.timestamp.toString()),
-        isPaid: inv.isPaid,
-        paymentTxHash: inv.paymentTxHash,
-        itemCount: BigInt(inv.itemCount.toString()),
-        paymentToken: inv.paymentToken || '0x0000000000000000000000000000000000000000',
-        expectedTotalUSDT: BigInt(inv.expectedTotalUSDT?.toString() || '0'),
-      }));
-    } catch (err: any) {
-      console.error('Error al obtener facturas:', err);
-      setError(err.message || 'Error al obtener facturas');
+      return invoices.map((inv: any) => mapRawInvoiceToInvoice(inv));
+    } catch (err: unknown) {
+      logger.error('Error al obtener facturas:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener facturas';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -405,20 +381,10 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setError(null);
     try {
       const invoice = await contract.getInvoice(invoiceId);
-      return {
-        invoiceId: BigInt(invoice.invoiceId.toString()),
-        companyId: BigInt(invoice.companyId.toString()),
-        customerAddress: invoice.customerAddress,
-        totalAmount: BigInt(invoice.totalAmount.toString()),
-        timestamp: BigInt(invoice.timestamp.toString()),
-        isPaid: invoice.isPaid,
-        paymentTxHash: invoice.paymentTxHash,
-        itemCount: BigInt(invoice.itemCount.toString()),
-        paymentToken: invoice.paymentToken || '0x0000000000000000000000000000000000000000',
-        expectedTotalUSDT: BigInt(invoice.expectedTotalUSDT?.toString() || '0'),
-      };
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener factura');
+      return mapRawInvoiceToInvoice(invoice);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener factura';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -459,8 +425,9 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
         taxId: company.taxId,
         isActive: company.isActive,
       };
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener empresa');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener empresa';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -475,11 +442,11 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setLoading(true);
     setError(null);
     try {
-      console.log('Agregando review:', { productId: productId.toString(), rating: rating.toString(), comment });
+      logger.debug('Agregando review:', { productId: productId.toString(), rating: rating.toString(), comment });
       const tx = await contractWithSigner.addReview(productId, rating, comment);
-      console.log('Transacción enviada:', tx.hash);
+      logger.debug('Transacción enviada:', tx.hash);
       const receipt = await tx.wait();
-      console.log('Transacción confirmada:', receipt);
+      logger.debug('Transacción confirmada:', receipt);
       
       // Buscar el evento ReviewAdded para obtener el reviewId
       const event = receipt.logs.find((log: any) => {
@@ -497,12 +464,13 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
       }
       
       throw new Error('No se pudo obtener el ID del review creado');
-    } catch (err: any) {
-      console.error('Error en addReview:', err);
-      if (err.code === 4001) {
+    } catch (err: unknown) {
+      logger.error('Error en addReview:', err);
+      if (err && typeof err === 'object' && 'code' in err && err.code === 4001) {
         throw new Error('Transacción rechazada por el usuario');
       }
-      setError(err.message || 'Error al agregar review');
+      const errorMessage = err instanceof Error ? err.message : 'Error al agregar review';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -516,17 +484,10 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setError(null);
     try {
       const reviews = await contract.getProductReviews(productId);
-      return reviews.map((r: any) => ({
-        reviewId: BigInt(r.reviewId.toString()),
-        productId: BigInt(r.productId.toString()),
-        customerAddress: r.customerAddress,
-        rating: BigInt(r.rating.toString()),
-        comment: r.comment,
-        timestamp: BigInt(r.timestamp.toString()),
-        isVerified: r.isVerified,
-      }));
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener reviews del producto');
+      return reviews.map((r: any) => mapRawReviewToReview(r));
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener reviews del producto';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -543,18 +504,11 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     setError(null);
     try {
       const reviews = await contractWithSigner.getMyReviews();
-      return reviews.map((r: any) => ({
-        reviewId: BigInt(r.reviewId.toString()),
-        productId: BigInt(r.productId.toString()),
-        customerAddress: r.customerAddress,
-        rating: BigInt(r.rating.toString()),
-        comment: r.comment,
-        timestamp: BigInt(r.timestamp.toString()),
-        isVerified: r.isVerified,
-      }));
-    } catch (err: any) {
-      console.error('Error al obtener mis reviews:', err);
-      setError(err.message || 'Error al obtener mis reviews');
+      return reviews.map((r: any) => mapRawReviewToReview(r));
+    } catch (err: unknown) {
+      logger.error('Error al obtener mis reviews:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener mis reviews';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -572,8 +526,9 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
         averageRating: BigInt(result[0].toString()),
         reviewCount: BigInt(result[1].toString()),
       };
-    } catch (err: any) {
-      setError(err.message || 'Error al obtener rating promedio');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener rating promedio';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
