@@ -73,13 +73,28 @@ export default function BuyTokensModal({
       const allowedOrigins = [
         window.location.origin,
         'http://localhost:3000',
+        'http://127.0.0.1:3000',
         'http://localhost:6001',
         BUY_TOKENS_URL
       ];
 
-      if (!allowedOrigins.some(origin => event.origin === origin || event.origin.includes('localhost'))) {
+      // Permitir mensajes de localhost (desarrollo) o del mismo origen
+      const isAllowedOrigin = allowedOrigins.some(origin => {
+        try {
+          return event.origin === origin || 
+                 event.origin.includes('localhost') || 
+                 event.origin.includes('127.0.0.1');
+        } catch {
+          return false;
+        }
+      });
+
+      if (!isAllowedOrigin) {
+        logger.debug('Mensaje rechazado de origen:', event.origin);
         return;
       }
+
+      logger.debug('Mensaje recibido del iframe:', event.data);
 
       // Detectar diferentes tipos de mensajes de éxito
       if (
@@ -88,14 +103,48 @@ export default function BuyTokensModal({
         event.data?.type === 'TOKEN_PURCHASE_SUCCESS' ||
         event.data?.success === true
       ) {
+        logger.debug('Pago completado detectado, actualizando...');
         setPaymentComplete(true);
         setCheckingPayment(true);
         handlePurchaseComplete();
       }
     };
 
+    // También escuchar cambios en la URL del iframe (para detectar ?payment=success)
+    const iframe = document.querySelector('iframe[title="Comprar Stablecoins"]') as HTMLIFrameElement;
+    let checkUrlInterval: NodeJS.Timeout | null = null;
+
+    if (iframe) {
+      checkUrlInterval = setInterval(() => {
+        try {
+          // Intentar acceder a la URL del iframe (solo funciona si es mismo origen)
+          // Si no funciona, el postMessage debería funcionar
+          if (iframe.contentWindow) {
+            const iframeUrl = iframe.contentWindow.location.href;
+            if (iframeUrl.includes('payment=success')) {
+              logger.debug('URL del iframe indica pago exitoso');
+              setPaymentComplete(true);
+              setCheckingPayment(true);
+              handlePurchaseComplete();
+              if (checkUrlInterval) {
+                clearInterval(checkUrlInterval);
+              }
+            }
+          }
+        } catch (err) {
+          // Cross-origin, no podemos acceder a la URL directamente
+          // Esto es normal y esperado
+        }
+      }, 1000);
+    }
+
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      if (checkUrlInterval) {
+        clearInterval(checkUrlInterval);
+      }
+    };
   }, [isOpen, handlePurchaseComplete]);
 
   const handleClose = () => {
@@ -113,7 +162,7 @@ export default function BuyTokensModal({
       onClick={handleClose}
     >
       <div 
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-slide-up"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-[95vw] h-[95vh] max-h-[95vh] flex flex-col animate-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -134,7 +183,7 @@ export default function BuyTokensModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 relative overflow-hidden">
+        <div className="flex-1 relative overflow-hidden min-h-0">
           {paymentComplete ? (
             <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
               <div className="text-center p-8">
@@ -153,6 +202,7 @@ export default function BuyTokensModal({
               className="w-full h-full border-0"
               title="Comprar Stablecoins"
               allow="payment"
+              style={{ minHeight: 'calc(95vh - 100px)' }}
             />
           )}
         </div>

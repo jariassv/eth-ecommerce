@@ -68,6 +68,21 @@ export default function CheckoutForm({
           }
         };
 
+        // Enviar postMessage al parent window si está en un iframe
+        try {
+          if (window.self !== window.top) {
+            window.parent.postMessage({
+              type: 'payment-complete',
+              payment: 'success',
+              success: true,
+              amount,
+              walletAddress
+            }, '*');
+          }
+        } catch (err) {
+          console.error('Error sending postMessage:', err);
+        }
+
         // Llamar inmediatamente
         triggerRefresh();
         
