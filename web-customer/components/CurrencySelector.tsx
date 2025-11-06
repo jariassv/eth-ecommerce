@@ -19,7 +19,7 @@ export default function CurrencySelector({
   showBalance = true,
 }: CurrencySelectorProps) {
   const { provider, address } = useWallet();
-  const { tokens, loading, getSelectedToken } = useTokens(provider, address);
+  const { tokens, loading, getSelectedToken, loadTokens } = useTokens(provider, address);
 
   const selectedToken = getSelectedToken();
   const usdtToken = tokens.get('USDT');
@@ -70,7 +70,16 @@ export default function CurrencySelector({
                     </p>
                     {usdtToken.balance === BigInt(0) && requiredAmount !== undefined && (
                       <div className="pt-1">
-                        <BuyTokensButton currency="USDT" className="w-full text-xs py-1.5" />
+                        <BuyTokensButton 
+                          currency="USDT" 
+                          className="w-full text-xs py-1.5"
+                          onPurchaseComplete={async () => {
+                            // Recargar tokens después de compra
+                            if (address && provider) {
+                              await loadTokens(requiredAmount, undefined);
+                            }
+                          }}
+                        />
                       </div>
                     )}
                   </>
@@ -107,7 +116,16 @@ export default function CurrencySelector({
                     </p>
                     {eurtToken.balance === BigInt(0) && requiredAmount !== undefined && (
                       <div className="pt-1">
-                        <BuyTokensButton currency="EURT" className="w-full text-xs py-1.5" />
+                        <BuyTokensButton 
+                          currency="EURT" 
+                          className="w-full text-xs py-1.5"
+                          onPurchaseComplete={async () => {
+                            // Recargar tokens después de compra
+                            if (address && provider) {
+                              await loadTokens(requiredAmount, undefined);
+                            }
+                          }}
+                        />
                       </div>
                     )}
                   </>
@@ -135,7 +153,16 @@ export default function CurrencySelector({
                       pero tienes {selectedToken.balanceFormatted} {selectedCurrency}
                     </p>
                     <div className="flex justify-end">
-                      <BuyTokensButton currency={selectedCurrency} className="text-xs py-1.5" />
+                      <BuyTokensButton 
+                        currency={selectedCurrency} 
+                        className="text-xs py-1.5"
+                        onPurchaseComplete={async () => {
+                          // Recargar tokens después de compra
+                          if (address && provider && requiredAmount !== undefined) {
+                            await loadTokens(requiredAmount, undefined);
+                          }
+                        }}
+                      />
                     </div>
                   </div>
                 )}

@@ -319,7 +319,16 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
               <p className="text-red-800 font-semibold text-center">{error}</p>
               {error.includes('Saldo insuficiente') && (
                 <div className="flex justify-center">
-                  <BuyTokensButton currency={selectedCurrency} />
+                  <BuyTokensButton 
+                    currency={selectedCurrency} 
+                    onPurchaseComplete={async () => {
+                      // Recargar el carrito después de comprar tokens
+                      await loadCart();
+                      if (onCartUpdate) {
+                        onCartUpdate();
+                      }
+                    }}
+                  />
                 </div>
               )}
             </div>

@@ -28,6 +28,6 @@ export const PAYMENT_GATEWAY_URL = typeof window !== 'undefined'
   : 'http://localhost:6002';
 
 export const BUY_TOKENS_URL = typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_BUY_TOKENS_URL || 'http://localhost:6001')
-  : 'http://localhost:6001';
+  ? (process.env.NEXT_PUBLIC_BUY_TOKENS_URL || 'http://localhost:3000')
+  : 'http://localhost:3000';
 

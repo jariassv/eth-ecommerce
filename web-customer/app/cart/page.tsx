@@ -430,7 +430,19 @@ export default function CartPage() {
                     </p>
                     {error.includes('Saldo insuficiente') && (
                       <div className="flex justify-end">
-                        <BuyTokensButton currency={selectedCurrency} />
+                        <BuyTokensButton 
+                          currency={selectedCurrency}
+                          onPurchaseComplete={async () => {
+                            // Recargar carrito y tokens después de compra
+                            await loadCart();
+                            if (address && isReady && total > BigInt(0)) {
+                              const selectedToken = getSelectedToken();
+                              if (selectedToken) {
+                                await loadTokens(total, rate ?? undefined);
+                              }
+                            }
+                          }}
+                        />
                       </div>
                     )}
                   </div>
