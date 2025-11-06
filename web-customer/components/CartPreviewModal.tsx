@@ -110,6 +110,12 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
   const [processing, setProcessing] = useState(false);
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Calcular si hay saldo insuficiente
+  const selectedToken = getSelectedToken();
+  const requiredAmount = selectedCurrency === 'EURT' && rate ? convertUSDTtoEURT(total, rate) : total;
+  const hasInsufficientBalance = selectedToken && total > 0n && selectedToken.balance < requiredAmount;
+  const hasZeroBalance = total > 0n && (!selectedToken || selectedToken.balance === 0n);
 
   const USD_TOKEN_ADDRESS = typeof window !== 'undefined'
     ? (process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS || '')
@@ -403,15 +409,25 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
 
             {/* Botón de checkout único */}
             <div className="space-y-3">
-              {/* Mensaje de error si hay saldo insuficiente */}
-              {error && error.includes('Saldo insuficiente') && (
+              {/* Mensaje y botón de compra si hay saldo insuficiente o balance 0 */}
+              {(hasInsufficientBalance || hasZeroBalance) && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-sm text-red-800 mb-2">{error}</p>
+                  <p className="text-sm text-red-800 mb-2">
+                    {hasZeroBalance 
+                      ? `No tienes ${selectedCurrency} en tu wallet. Compra tokens para continuar.`
+                      : selectedToken 
+                        ? `Saldo insuficiente. Necesitas ${formatTokenAmount(requiredAmount, selectedToken.decimals)} ${selectedCurrency} pero tienes ${selectedToken.balanceFormatted} ${selectedCurrency}`
+                        : `No tienes ${selectedCurrency} en tu wallet. Compra tokens para continuar.`
+                    }
+                  </p>
                   <BuyTokensButton 
                     currency={selectedCurrency} 
                     className="w-full"
                     onPurchaseComplete={async () => {
-                      // Recargar el carrito después de comprar tokens
+                      // Recargar tokens y carrito después de comprar tokens
+                      if (address && provider) {
+                        await loadTokens(total, rate);
+                      }
                       await loadCart();
                       if (onCartUpdate) {
                         onCartUpdate();
@@ -420,6 +436,14 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
                   />
                 </div>
               )}
+              
+              {/* Mensaje de error si hay otro tipo de error */}
+              {error && !error.includes('Saldo insuficiente') && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <p className="text-sm text-yellow-800">{error}</p>
+                </div>
+              )}
+              
             <div className="flex gap-3">
               <Link
                 href="/cart"

@@ -129,6 +129,12 @@ export default function CartPage() {
   const [error, setError] = useState<string | null>(null);
   const [loadingCart, setLoadingCart] = useState(true);
   const [approving, setApproving] = useState(false);
+  
+  // Calcular si hay saldo insuficiente
+  const selectedToken = getSelectedToken();
+  const requiredAmount = selectedCurrency === 'EURT' && rate ? convertUSDTtoEURT(total, rate) : total;
+  const hasInsufficientBalance = selectedToken && total > BigInt(0) && selectedToken.balance < requiredAmount;
+  const hasZeroBalance = total > BigInt(0) && (!selectedToken || selectedToken.balance === BigInt(0));
 
   useEffect(() => {
     if (address && isReady) {
@@ -418,10 +424,17 @@ export default function CartPage() {
 
                 {/* Botón de checkout con mensaje de error si es necesario */}
                 <div className="space-y-3">
-                  {/* Mensaje de error si hay saldo insuficiente */}
-                  {error && error.includes('Saldo insuficiente') && (
+                  {/* Mensaje y botón de compra si hay saldo insuficiente o balance 0 */}
+                  {(hasInsufficientBalance || hasZeroBalance) && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
-                      <p className="text-sm font-semibold text-red-800">{error}</p>
+                      <p className="text-sm font-semibold text-red-800">
+                        {hasZeroBalance 
+                          ? `No tienes ${selectedCurrency} en tu wallet. Compra tokens para continuar.`
+                          : selectedToken
+                            ? `Saldo insuficiente. Necesitas ${formatTokenAmount(requiredAmount, selectedToken.decimals)} ${selectedCurrency} pero tienes ${selectedToken.balanceFormatted} ${selectedCurrency}`
+                            : `No tienes ${selectedCurrency} en tu wallet. Compra tokens para continuar.`
+                        }
+                      </p>
                       <BuyTokensButton 
                         currency={selectedCurrency}
                         className="w-full"
@@ -429,10 +442,7 @@ export default function CartPage() {
                           // Recargar carrito y tokens después de compra
                           await loadCart();
                           if (address && isReady && total > BigInt(0)) {
-                            const selectedToken = getSelectedToken();
-                            if (selectedToken) {
-                              await loadTokens(total, rate ?? undefined);
-                            }
+                            await loadTokens(total, rate ?? undefined);
                           }
                         }}
                       />
