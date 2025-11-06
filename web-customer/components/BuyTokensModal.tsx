@@ -22,34 +22,90 @@ export default function BuyTokensModal({
   onPurchaseComplete 
 }: BuyTokensModalProps) {
   const { provider, address } = useWallet();
-  const { loadTokens } = useTokens(provider, address);
+  const { loadTokens, tokens, getSelectedToken } = useTokens(provider, address);
   const [checkingPayment, setCheckingPayment] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
+  const [balanceDetected, setBalanceDetected] = useState(false);
 
   const handlePurchaseComplete = useCallback(async () => {
     try {
       setCheckingPayment(true);
       setPaymentComplete(true);
       
-      // Esperar a que la pantalla cargue completamente después del pago
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Esperar un momento para que el webhook procese
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Recargar tokens con polling para asegurar que el balance se actualice
-      // Esperar un poco más para que la transacción de mint se confirme en la blockchain
       if (address && provider) {
-        // Esperar tiempo para que el webhook procese y la transacción se confirme
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        // Obtener balance inicial para comparar
+        await loadTokens(BigInt(0), undefined); // Cargar una vez para tener estado inicial
+        await new Promise(resolve => setTimeout(resolve, 500)); // Esperar a que se actualice el estado
+        const initialToken = getSelectedToken();
+        const initialBalance = initialToken?.balance || BigInt(0);
+        
+        logger.debug('Balance inicial:', initialBalance.toString());
+        
+        // Forzar refresh del provider para actualizar cache de MetaMask
+        try {
+          if (typeof window !== 'undefined' && window.ethereum) {
+            const ethereum = window.ethereum as any;
+            // Forzar refresh del balance en MetaMask
+            if (ethereum.request) {
+              await ethereum.request({ method: 'eth_requestAccounts' });
+            }
+            // Intentar invalidar cache haciendo una llamada al blockchain
+            if (provider && typeof provider.getBlockNumber === 'function') {
+              await provider.getBlockNumber();
+            }
+          }
+        } catch (err) {
+          logger.debug('Error refreshing provider:', err);
+        }
         
         let attempts = 0;
-        const maxAttempts = 8;
-        const pollInterval = 3000; // 3 segundos entre intentos
+        const maxAttempts = 12;
+        const pollInterval = 1500; // 1.5 segundos entre intentos (más rápido)
+        let balanceChanged = false;
         
-        while (attempts < maxAttempts) {
+        while (attempts < maxAttempts && !balanceChanged) {
           try {
-            // Recargar tokens - si hay un total requerido, debería pasarse desde el callback
+            // Recargar tokens
             await loadTokens(BigInt(0), undefined);
             
-            // Disparar evento de actualización después de cada intento exitoso
+            // Esperar un momento para que el estado se actualice
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            // Verificar si el balance cambió
+            const currentToken = getSelectedToken();
+            const currentBalance = currentToken?.balance || BigInt(0);
+            
+            logger.debug(`Intento ${attempts + 1}: Balance actual:`, currentBalance.toString());
+            
+            if (currentBalance > initialBalance) {
+              logger.debug('✅ Balance detectado! Cambio:', (currentBalance - initialBalance).toString());
+              balanceChanged = true;
+              setBalanceDetected(true);
+              
+              // Disparar eventos inmediatamente
+              dispatchTokenBalanceUpdated();
+              dispatchCartUpdated();
+              
+              // Llamar callback inmediatamente
+              if (onPurchaseComplete) {
+                await onPurchaseComplete();
+              }
+              
+              // Esperar solo 1 segundo para mostrar éxito y cerrar
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              
+              // Cerrar modal
+              setPaymentComplete(false);
+              setCheckingPayment(false);
+              setBalanceDetected(false);
+              onClose();
+              return;
+            }
+            
+            // Disparar evento de actualización después de cada intento
             dispatchTokenBalanceUpdated();
             
             // Esperar antes de la siguiente verificación
@@ -62,36 +118,42 @@ export default function BuyTokensModal({
           }
         }
         
-        // Una última recarga y notificación antes de cerrar
-        await loadTokens(BigInt(0), undefined);
+        // Si llegamos aquí, no detectamos cambio pero cerramos de todas formas
+        // (puede que el balance ya esté actualizado o haya un delay)
+        logger.debug('No se detectó cambio de balance, pero cerrando modal de todas formas');
         dispatchTokenBalanceUpdated();
+        dispatchCartUpdated();
+        
+        if (onPurchaseComplete) {
+          await onPurchaseComplete();
+        }
+        
+        // Esperar solo medio segundo
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } else {
+        // Si no hay provider, cerrar inmediatamente
+        dispatchTokenBalanceUpdated();
+        dispatchCartUpdated();
+        
+        if (onPurchaseComplete) {
+          await onPurchaseComplete();
+        }
       }
-      
-      // Disparar eventos de actualización
-      dispatchCartUpdated();
-      dispatchTokenBalanceUpdated();
-      
-      // Llamar callback si existe (esto actualizará el carrito en el componente padre)
-      if (onPurchaseComplete) {
-        await onPurchaseComplete();
-      }
-
-      // Esperar un poco más para mostrar la confirmación de éxito
-      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Cerrar modal
       setPaymentComplete(false);
       setCheckingPayment(false);
+      setBalanceDetected(false);
       onClose();
     } catch (err) {
       logger.error('Error al actualizar tokens después de compra:', err);
-      // Aún así, esperar y cerrar el modal
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Cerrar inmediatamente en caso de error
       setPaymentComplete(false);
       setCheckingPayment(false);
+      setBalanceDetected(false);
       onClose();
     }
-  }, [address, provider, loadTokens, onPurchaseComplete, onClose]);
+  }, [address, provider, loadTokens, onPurchaseComplete, onClose, getSelectedToken]);
 
   // Detectar cuando se completa el pago usando postMessage desde el iframe
   useEffect(() => {
@@ -223,11 +285,15 @@ export default function BuyTokensModal({
                   </svg>
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-3">¡Compra exitosa!</h3>
-                <p className="text-lg text-gray-600 mb-4">Actualizando tu balance...</p>
+                <p className="text-lg text-gray-600 mb-4">
+                  {balanceDetected ? 'Balance actualizado correctamente' : 'Actualizando tu balance...'}
+                </p>
                 {checkingPayment && (
-                  <div className="flex items-center justify-center gap-2 text-gray-500">
+                  <div className="flex flex-col items-center justify-center gap-2 text-gray-500">
                     <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-sm">Esperando confirmación de la transacción...</span>
+                    <span className="text-sm">
+                      {balanceDetected ? 'Verificando actualización...' : 'Esperando confirmación de la transacción...'}
+                    </span>
                   </div>
                 )}
               </div>
