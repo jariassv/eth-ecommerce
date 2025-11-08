@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { Invoice, Product } from '@/lib/contracts';
@@ -65,12 +65,13 @@ const AverageIcon = ({ className }: { className?: string }) => (
 
 export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
   const { address, provider, isConnected } = useWallet();
-  const { getCompanyInvoices, getCompanyProducts, getInvoiceItems, loading, isReady } = useEcommerce(provider, address);
+  const { contract, getCompanyInvoices, getCompanyProducts, getInvoiceItems, loading, isReady } = useEcommerce(provider, address);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [invoiceItemsMap, setInvoiceItemsMap] = useState<Map<bigint, Array<{ productId: bigint; quantity: bigint }>>>(new Map());
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const companyIdStr = companyId.toString();
 
   // Helper para obtener la dirección del token EURT
   const getEURTTokenAddress = () => {
@@ -106,18 +107,7 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
     return invoice.totalAmount;
   };
 
-  useEffect(() => {
-    if (isReady && isConnected) {
-      loadData();
-    } else if (!isConnected) {
-      setLoadingData(false);
-      setError('Debes conectar tu wallet para ver los analytics');
-    } else {
-      setLoadingData(true);
-    }
-  }, [companyId, isReady, isConnected]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoadingData(true);
       setError(null);
@@ -151,7 +141,52 @@ export default function AnalyticsTab({ companyId }: AnalyticsTabProps) {
     } finally {
       setLoadingData(false);
     }
-  };
+  }, [companyId, getCompanyInvoices, getCompanyProducts, getInvoiceItems]);
+
+  useEffect(() => {
+    if (isReady && isConnected) {
+      loadData().catch(err => logger.error('Error refreshing analytics data:', err));
+    } else if (!isConnected) {
+      setLoadingData(false);
+      setError('Debes conectar tu wallet para ver los analytics');
+    } else {
+      setLoadingData(true);
+    }
+  }, [companyId, isReady, isConnected, loadData]);
+
+  useEffect(() => {
+    if (!contract || !isConnected || !isReady) return;
+
+    const matchesCompany = (eventCompanyId: unknown) => {
+      if (typeof eventCompanyId === 'bigint') {
+        return eventCompanyId.toString() === companyIdStr;
+      }
+      if (eventCompanyId && typeof (eventCompanyId as any).toString === 'function') {
+        return (eventCompanyId as any).toString() === companyIdStr;
+      }
+      return false;
+    };
+
+    const handleInvoiceCreated = (_invoiceId: unknown, _customer: unknown, eventCompanyId: unknown) => {
+      if (matchesCompany(eventCompanyId)) {
+        loadData().catch(err => logger.error('Error refreshing analytics after invoice creation:', err));
+      }
+    };
+
+    const handlePaymentProcessed = (_invoiceId: unknown, _customer: unknown, eventCompanyId: unknown) => {
+      if (matchesCompany(eventCompanyId)) {
+        loadData().catch(err => logger.error('Error refreshing analytics after payment:', err));
+      }
+    };
+
+    contract.on('InvoiceCreated', handleInvoiceCreated);
+    contract.on('PaymentProcessed', handlePaymentProcessed);
+
+    return () => {
+      contract.off('InvoiceCreated', handleInvoiceCreated);
+      contract.off('PaymentProcessed', handlePaymentProcessed);
+    };
+  }, [contract, companyIdStr, isConnected, isReady, loadData]);
 
   // Calcular métricas
   const metrics = useMemo(() => {
