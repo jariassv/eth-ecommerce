@@ -219,7 +219,6 @@ export default function ContractAdminPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Wallet</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tax ID</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"></th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
@@ -238,14 +237,6 @@ export default function ContractAdminPage() {
                           {company.isActive ? 'Activa' : 'Inactiva'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <Link
-                          href={`/company/${company.companyId.toString()}`}
-                          className="text-indigo-600 hover:text-indigo-800 text-sm font-semibold"
-                        >
-                          Ver panel
-                        </Link>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -261,17 +252,9 @@ export default function ContractAdminPage() {
           ) : (
             <ul className="divide-y divide-gray-100">
               {latestCompanies.map(company => (
-                <li key={company.companyId.toString()} className="py-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">{company.name}</p>
-                    <p className="text-xs text-gray-500 font-mono">{company.companyAddress}</p>
-                  </div>
-                  <Link
-                    href={`/company/${company.companyId.toString()}`}
-                    className="text-indigo-600 hover:text-indigo-800 text-sm font-semibold"
-                  >
-                    Gestionar
-                  </Link>
+                <li key={company.companyId.toString()} className="py-3">
+                  <p className="text-sm font-semibold text-gray-900">{company.name}</p>
+                  <p className="text-xs text-gray-500 font-mono">{company.companyAddress}</p>
                 </li>
               ))}
             </ul>
