@@ -121,7 +121,7 @@ const EUR_TOKEN_ADDRESS = CONTRACTS.EUR_TOKEN;
 
 export default function CartPage() {
   const { provider, address, isConnected } = useWallet();
-  const { contract, getCart, getProduct, getCartTotal, clearCart, createInvoiceWithCurrency, getCompany, removeFromCart, updateCartItem, loading, isReady } = useEcommerce(provider, address);
+  const { contract, getCart, getProduct, getCartTotal, createInvoiceWithCurrency, getCompany, removeFromCart, updateCartItem, loading, isReady } = useEcommerce(provider, address);
   const { selectedCurrency, setSelectedCurrency, loadTokens, approveToken, getSelectedToken } = useTokens(provider, address);
   const { rate, rateInfo, loading: loadingRate, error: rateError } = useExchangeRate();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -290,9 +290,7 @@ export default function CartPage() {
         paymentTokenAddress,
         total // expectedTotalUSDT - total del carrito en USDT
       );
-
-      // Limpiar carrito
-      await clearCart();
+      await loadCart();
 
       // Redirigir a pasarela de pago
       // IMPORTANTE: merchant_address es la dirección de la empresa, NO la del token

@@ -103,7 +103,7 @@ interface CartPreviewModalProps {
 
 export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: CartPreviewModalProps) {
   const { provider, address, isConnected } = useWallet();
-  const { getCart, getProduct, getCartTotal, clearCart, createInvoiceWithCurrency, getCompany, removeFromCart, isReady } = useEcommerce(provider, address);
+  const { getCart, getProduct, getCartTotal, createInvoiceWithCurrency, getCompany, removeFromCart, isReady } = useEcommerce(provider, address);
   const { selectedCurrency, setSelectedCurrency, loadTokens, approveToken, getSelectedToken } = useTokens(provider, address);
   const { rate, rateInfo, loading: loadingRate, error: rateError } = useExchangeRate();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -284,9 +284,6 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
         paymentTokenAddress,
         total // expectedTotalUSDT - total del carrito en USDT
       );
-
-      // Limpiar carrito
-      await clearCart();
 
       // Notificar actualización
       if (onCartUpdate) {

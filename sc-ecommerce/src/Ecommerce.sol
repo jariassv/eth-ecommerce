@@ -432,12 +432,16 @@ contract Ecommerce is Ownable {
      * @dev Limpiar el carrito
      */
     function clearCart() external {
-        uint256 itemCount = cartItemCounts[msg.sender];
+        _clearCart(msg.sender);
+    }
+
+    function _clearCart(address customer) private {
+        uint256 itemCount = cartItemCounts[customer];
         for (uint256 i = 0; i < itemCount; i++) {
-            bytes32 key = keccak256(abi.encodePacked(msg.sender, i));
+            bytes32 key = keccak256(abi.encodePacked(customer, i));
             delete cartItems[key];
         }
-        cartItemCounts[msg.sender] = 0;
+        cartItemCounts[customer] = 0;
     }
 
     // ============ FACTURAS ============
@@ -486,6 +490,7 @@ contract Ecommerce is Ownable {
         );
 
         emit InvoiceCreated(invoiceId, msg.sender, companyId, totalAmount);
+        _clearCart(msg.sender);
         return (invoiceId, totalAmount);
     }
 
