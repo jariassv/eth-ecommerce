@@ -70,7 +70,7 @@ export default function Home() {
                 Marketplace Descentralizado
               </h1>
               <p className="text-xl md:text-2xl text-indigo-100 mb-8">
-                Compra productos con tokens USDT en blockchain
+                Compra productos con tokens USDT/EURT en blockchain
               </p>
               <div className="flex flex-wrap justify-center gap-4 text-sm">
                 <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full">

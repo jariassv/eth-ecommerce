@@ -7,11 +7,13 @@ import { useEcommerce } from '@/hooks/useEcommerce';
 import { logger } from '@/lib/logger';
 import Link from 'next/link';
 import { ethers } from 'ethers';
+import { useNotification } from '@/components/NotificationProvider';
 
 export default function RegisterPage() {
   const { address, provider, isConnected, connect } = useWallet();
   const { getOwner, registerCompany, loading, error, isReady } = useEcommerce(provider, address);
   const router = useRouter();
+  const { notifyError, notifyInfo, notifySuccess } = useNotification();
   
   const [companyAddress, setCompanyAddress] = useState('');
   const [name, setName] = useState('');
@@ -45,18 +47,18 @@ export default function RegisterPage() {
     e.preventDefault();
     
     if (!isConnected) {
-      alert('Por favor conecta tu wallet primero');
+      notifyInfo('Conecta tu wallet', 'Necesitas conectar tu wallet antes de registrar una empresa.');
       return;
     }
 
     if (!companyAddress.trim() || !name.trim() || !taxId.trim()) {
-      alert('Por favor completa todos los campos');
+      notifyInfo('Completa los campos requeridos', 'Todos los datos de la empresa son obligatorios.');
       return;
     }
 
     // Validar formato de dirección Ethereum
     if (!ethers.isAddress(companyAddress.trim())) {
-      alert('La dirección de la empresa no es válida');
+      notifyError('Dirección inválida', 'La dirección de la empresa debe ser un address de Ethereum válido.');
       return;
     }
 
@@ -64,13 +66,14 @@ export default function RegisterPage() {
     try {
       const companyId = await registerCompany(companyAddress.trim(), name.trim(), taxId.trim());
       setSuccess(true);
+      notifySuccess('Empresa registrada', 'Redirigiendo al panel de gestión...');
       setTimeout(() => {
         router.push(`/company/${companyId.toString()}`);
       }, 2000);
     } catch (err: unknown) {
       logger.error('Error registering company:', err);
       const errorMessage = err instanceof Error ? err.message : 'Error al registrar empresa';
-      alert(errorMessage);
+      notifyError('No pudimos registrar la empresa', errorMessage);
     } finally {
       setProcessing(false);
     }

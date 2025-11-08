@@ -11,6 +11,7 @@ import { logger } from '@/lib/logger';
 import { dispatchCartUpdated } from '@/lib/cartEvents';
 import ProductReviews from './ProductReviews';
 import PriceConverter from './PriceConverter';
+import { useNotification } from './NotificationProvider';
 
 interface ProductDetailModalProps {
   product: Product;
@@ -33,6 +34,7 @@ export default function ProductDetailModal({
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [imageGatewayIndices, setImageGatewayIndices] = useState<Map<number, number>>(new Map());
   const [imageErrors, setImageErrors] = useState<Map<number, boolean>>(new Map());
+  const { notifyError, notifyInfo, notifySuccess } = useNotification();
 
   // Preparar todas las imágenes (principal + adicionales)
   const allImages = [
@@ -98,12 +100,12 @@ export default function ProductDetailModal({
 
   const handleAddToCart = async () => {
     if (!address) {
-      alert('Por favor conecta tu wallet primero');
+      notifyInfo('Conecta tu wallet', 'Necesitas conectar tu wallet para agregar productos al carrito.');
       return;
     }
 
     if (product.stock < BigInt(quantity)) {
-      alert('Stock insuficiente');
+      notifyError('Stock insuficiente', 'La cantidad seleccionada supera las unidades disponibles.');
       return;
     }
 
@@ -120,12 +122,15 @@ export default function ProductDetailModal({
       }
       // Disparar evento global para actualizar el contador del carrito
       dispatchCartUpdated();
-      alert(`Se agregaron ${quantity} unidades al carrito`);
+      notifySuccess(
+        'Producto agregado',
+        `Se agregaron ${quantity} ${quantity === 1 ? 'unidad' : 'unidades'} al carrito.`
+      );
       onClose();
     } catch (err: unknown) {
       logger.error('Error al agregar al carrito:', err);
       const errorMessage = err instanceof Error ? err.message : 'Error al agregar al carrito';
-      alert(errorMessage);
+      notifyError('No pudimos agregar el producto', errorMessage);
     } finally {
       setAdding(false);
     }

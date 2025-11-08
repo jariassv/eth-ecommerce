@@ -17,6 +17,7 @@ import Header from '@/components/Header';
 import CurrencySelector from '@/components/CurrencySelector';
 import PriceConverter from '@/components/PriceConverter';
 import Link from 'next/link';
+import { useNotification } from '@/components/NotificationProvider';
 
 // Componente para cada item del carrito
 function CartItemRow({ 
@@ -31,6 +32,7 @@ function CartItemRow({
   selectedCurrency: 'USDT' | 'EURT';
 }) {
   const [removing, setRemoving] = useState(false);
+  const { notifyError } = useNotification();
 
   const handleRemove = async () => {
     if (!confirm(`¿Deseas remover ${product.name} del carrito?`)) return;
@@ -41,7 +43,7 @@ function CartItemRow({
     } catch (err: unknown) {
       logger.error('Error al remover del carrito:', err);
       const errorMessage = err instanceof Error ? err.message : 'Error al remover del carrito';
-      alert(errorMessage);
+      notifyError('No pudimos remover el producto', errorMessage);
     } finally {
       setRemoving(false);
     }

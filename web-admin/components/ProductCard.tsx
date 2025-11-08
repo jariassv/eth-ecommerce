@@ -7,6 +7,7 @@ import { Product } from '@/lib/contracts';
 import { formatTokenAmount } from '@/lib/ethers';
 import { getIPFSImageUrl, getNextIPFSGateway } from '@/hooks/useIPFS';
 import { logger } from '@/lib/logger';
+import { useNotification } from './NotificationProvider';
 
 interface ProductCardProps {
   product: Product;
@@ -20,6 +21,7 @@ export default function ProductCard({ product, onEdit, onToggleActive }: Product
   const [toggling, setToggling] = useState(false);
   const [currentGatewayIndex, setCurrentGatewayIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
+  const { notifyError } = useNotification();
 
   const handleToggleActive = async () => {
     if (!confirm(`¿${product.isActive ? 'Desactivar' : 'Activar'} este producto?`)) {
@@ -32,7 +34,7 @@ export default function ProductCard({ product, onEdit, onToggleActive }: Product
       onToggleActive();
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Error al cambiar estado del producto';
-      alert(errorMessage);
+      notifyError('No pudimos actualizar el producto', errorMessage);
     } finally {
       setToggling(false);
     }

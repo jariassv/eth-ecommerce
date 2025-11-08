@@ -5,6 +5,7 @@ import { Review, Product } from '@/lib/contracts';
 import { useEcommerce } from '@/hooks/useEcommerce';
 import { useWallet } from '@/hooks/useWallet';
 import { logger } from '@/lib/logger';
+import { useNotification } from '@/components/NotificationProvider';
 
 interface ProductReviewsProps {
   product: Product;
@@ -22,6 +23,7 @@ export default function ProductReviews({ product, onReviewAdded }: ProductReview
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { notifyError, notifySuccess, notifyInfo } = useNotification();
 
   useEffect(() => {
     if (isReady) {
@@ -71,12 +73,12 @@ export default function ProductReviews({ product, onReviewAdded }: ProductReview
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isConnected || !address) {
-      alert('Por favor conecta tu wallet primero');
+      notifyInfo('Conecta tu wallet', 'Necesitas conectar tu wallet para poder dejar un review.');
       return;
     }
 
     if (!comment.trim()) {
-      alert('Por favor escribe un comentario');
+      notifyInfo('Escribe tu comentario', 'El review debe incluir un comentario antes de enviarse.');
       return;
     }
 
@@ -93,12 +95,12 @@ export default function ProductReviews({ product, onReviewAdded }: ProductReview
       if (onReviewAdded) {
         onReviewAdded();
       }
-      alert('¡Review agregado exitosamente!');
+      notifySuccess('Review publicado', 'Gracias por compartir tu experiencia con este producto.');
     } catch (err: unknown) {
       logger.error('Error submitting review:', err);
       const errorMessage = err instanceof Error ? err.message : 'Error al agregar review';
       setError(errorMessage);
-      alert(errorMessage);
+      notifyError('No pudimos publicar tu review', errorMessage);
     } finally {
       setSubmitting(false);
     }

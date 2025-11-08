@@ -11,6 +11,7 @@ import { logger } from '@/lib/logger';
 import PriceConverter from './PriceConverter';
 import { useState } from 'react';
 import ProductDetailModal from './ProductDetailModal';
+import { useNotification } from './NotificationProvider';
 
 interface ProductCardProps {
   product: Product;
@@ -25,18 +26,19 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
   const [quantity, setQuantity] = useState<number>(1);
   const [adding, setAdding] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const { notifyError, notifyInfo, notifySuccess } = useNotification();
 
   const price = formatTokenAmount(product.price, 6);
   const hasStock = product.stock > 0n;
 
   const handleAddToCart = async () => {
     if (!address) {
-      alert('Por favor conecta tu wallet primero');
+      notifyInfo('Conecta tu wallet', 'Necesitas conectar tu wallet para agregar productos al carrito.');
       return;
     }
 
     if (!hasStock) {
-      alert('Producto sin stock');
+      notifyError('Producto sin stock', 'Este producto está agotado por el momento.');
       return;
     }
 
@@ -53,10 +55,13 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
       }
       // Disparar evento global para actualizar el contador del carrito
       dispatchCartUpdated();
-      alert(`Se agregaron ${quantity} unidades al carrito`);
+      notifySuccess(
+        'Producto agregado',
+        `Se agregaron ${quantity} ${quantity === 1 ? 'unidad' : 'unidades'} al carrito.`
+      );
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Error al agregar al carrito';
-      alert(errorMessage);
+      notifyError('No pudimos agregar el producto', errorMessage);
     } finally {
       setAdding(false);
     }
