@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545';
+import { RPC_URL } from '@/lib/constants';
 
 export async function POST(request: NextRequest) {
   try {

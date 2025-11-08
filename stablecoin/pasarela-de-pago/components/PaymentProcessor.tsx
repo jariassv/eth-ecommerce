@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { getTokenAllowance } from '@/lib/ethers';
 import { getEcommerceContract, getERC20Contract, Invoice } from '@/lib/contracts';
+import { BUY_TOKENS_URL } from '@/lib/config';
 
 interface PaymentProcessorProps {
   walletAddress: string | null;
@@ -414,7 +415,7 @@ export default function PaymentProcessor({
               Necesitas {amount.toFixed(2)} {tokenType} pero tienes {balance} {tokenType}.
             </p>
             <a
-              href="http://localhost:6001"
+              href={BUY_TOKENS_URL}
               target="_blank"
               className="text-sm underline mt-2 inline-block"
             >

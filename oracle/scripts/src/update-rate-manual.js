@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
 import dotenv from 'dotenv';
+import { RPC_URL } from './config.js';
 
 dotenv.config();
 
@@ -96,7 +97,6 @@ async function main() {
     console.log(`Time: ${new Date().toISOString()}`);
     
     // Validar variables de entorno
-    const rpcUrl = process.env.RPC_URL || 'http://localhost:8545';
     const oracleAddress = process.env.EXCHANGE_RATE_ORACLE_ADDRESS;
     const privateKey = process.env.PRIVATE_KEY;
     
@@ -126,8 +126,8 @@ async function main() {
     const newRate = convertRateToContractFormat(rateDecimal);
     
     // Conectar a la blockchain
-    console.log(`\nConnecting to RPC: ${rpcUrl}`);
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    console.log(`\nConnecting to RPC: ${RPC_URL}`);
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
     const wallet = new ethers.Wallet(privateKey, provider);
     const oracleContract = new ethers.Contract(oracleAddress, ORACLE_ABI, provider);
     

@@ -154,20 +154,38 @@ export default function BuyTokensModal({
 
     const handleMessage = (event: MessageEvent) => {
       // Verificar origen por seguridad (ajustar según tu dominio)
-      // Aceptar mensajes del mismo origen o de los puertos locales configurados
-      const allowedOrigins = [
-        window.location.origin,
-        'http://localhost:6001',
-        'http://127.0.0.1:6001',
-        BUY_TOKENS_URL
-      ];
-
-      // Permitir mensajes de localhost (desarrollo) o del mismo origen
-      const isAllowedOrigin = allowedOrigins.some(origin => {
+      // Aceptar mensajes del mismo origen o de los puertos configurados vía ENV
+      const iframeOrigins = (() => {
         try {
-          return event.origin === origin || 
-                 event.origin.includes('localhost') || 
-                 event.origin.includes('127.0.0.1');
+          const parsed = new URL(BUY_TOKENS_URL);
+          const origins = [parsed.origin];
+          if (parsed.hostname === 'localhost') {
+            origins.push(`${parsed.protocol}//127.0.0.1${parsed.port ? `:${parsed.port}` : ''}`);
+          }
+          return origins;
+        } catch {
+          return [BUY_TOKENS_URL];
+        }
+      })();
+
+      const allowedOrigins = new Set<string>([
+        window.location.origin,
+        ...iframeOrigins,
+      ]);
+
+      const isAllowedOrigin = Array.from(allowedOrigins).some(origin => {
+        if (origin === event.origin) {
+          return true;
+        }
+        try {
+          const originUrl = new URL(origin);
+          const eventUrl = new URL(event.origin);
+          const isLoopbackAlias =
+            originUrl.hostname === 'localhost' &&
+            eventUrl.hostname === '127.0.0.1' &&
+            originUrl.port === eventUrl.port &&
+            originUrl.protocol === eventUrl.protocol;
+          return isLoopbackAlias;
         } catch {
           return false;
         }

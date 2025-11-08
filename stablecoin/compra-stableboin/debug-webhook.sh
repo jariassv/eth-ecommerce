@@ -21,6 +21,11 @@ echo -e "${GREEN}✅ .env.local existe${NC}"
 # Cargar variables
 source .env.local 2>/dev/null || true
 
+RPC_URL_VALUE="${NEXT_PUBLIC_RPC_URL:-${RPC_URL:-http://localhost:8545}}"
+APP_URL_VALUE="${NEXT_PUBLIC_APP_URL:-http://localhost:6001}"
+BUY_TOKENS_URL_VALUE="${NEXT_PUBLIC_BUY_TOKENS_URL:-$APP_URL_VALUE}"
+WEBHOOK_ENDPOINT="${BUY_TOKENS_URL_VALUE%/}/api/webhook"
+
 # Verificar variables críticas
 echo ""
 echo -e "${YELLOW}Verificando variables de entorno:${NC}"
@@ -52,10 +57,10 @@ fi
 # Verificar que Anvil está corriendo
 echo ""
 echo -e "${YELLOW}Verificando Anvil:${NC}"
-if curl -s http://localhost:8545 > /dev/null 2>&1; then
+if curl -s "$RPC_URL_VALUE" > /dev/null 2>&1; then
     echo -e "${GREEN}✅ Anvil está corriendo${NC}"
 else
-    echo -e "${RED}❌ Anvil NO está corriendo en localhost:8545${NC}"
+    echo -e "${RED}❌ Anvil NO está corriendo en $RPC_URL_VALUE${NC}"
     echo -e "${YELLOW}💡 Inicia Anvil: anvil${NC}"
 fi
 
@@ -66,8 +71,7 @@ if [ ! -z "$NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS" ]; then
     
     # Intentar verificar el owner del contrato
     if command -v cast &> /dev/null; then
-        RPC_URL="${NEXT_PUBLIC_RPC_URL:-http://localhost:8545}"
-        OWNER=$(cast call "$NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS" "owner()(address)" --rpc-url "$RPC_URL" 2>/dev/null)
+        OWNER=$(cast call "$NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS" "owner()(address)" --rpc-url "$RPC_URL_VALUE" 2>/dev/null)
         
         if [ ! -z "$OWNER" ]; then
             echo -e "${GREEN}✅ Contrato desplegado, owner: ${OWNER:0:10}...${NC}"
@@ -87,7 +91,7 @@ if pgrep -f "stripe listen" > /dev/null; then
     echo -e "${GREEN}✅ stripe listen está corriendo${NC}"
 else
     echo -e "${RED}❌ stripe listen NO está corriendo${NC}"
-    echo -e "${YELLOW}💡 Ejecuta: stripe listen --forward-to localhost:6001/api/webhook${NC}"
+    echo -e "${YELLOW}💡 Ejecuta: stripe listen --forward-to $WEBHOOK_ENDPOINT${NC}"
 fi
 
 if pgrep -f "next dev" > /dev/null; then
@@ -109,5 +113,5 @@ echo "1. Verifica los logs de Next.js (terminal donde corre npm run dev)"
 echo "2. Verifica los eventos en stripe listen"
 echo "3. Verifica los logs de Anvil para transacciones"
 echo "4. Ver balance directamente con cast:"
-echo "   cast call \$CONTRACT_ADDRESS \"balanceOf(address)(uint256)\" \$WALLET_ADDRESS --rpc-url http://localhost:8545"
+echo "   cast call \$CONTRACT_ADDRESS \"balanceOf(address)(uint256)\" \$WALLET_ADDRESS --rpc-url $RPC_URL_VALUE"
 

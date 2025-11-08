@@ -1,4 +1,5 @@
 import { ethers } from 'ethers';
+import { RPC_URL } from '@/lib/constants';
 
 declare global {
   interface Window {
@@ -52,9 +53,6 @@ export function parseTokenAmount(amount: string, decimals: number = 6): bigint {
  * Obtener el RPC URL
  */
 export function getRpcUrl(): string {
-  if (typeof window !== 'undefined') {
-    return process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545';
-  }
-  return 'http://localhost:8545';
+  return RPC_URL;
 }
 

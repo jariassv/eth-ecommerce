@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { connectWallet, getTokenBalance } from '@/lib/ethers';
 import { formatTokenAmount } from '@/lib/ethers';
+import { EUR_TOKEN_ADDRESS, RPC_URL, USD_TOKEN_ADDRESS } from '@/lib/config';
 
 interface WalletConnectProps {
   onAddressChange: (address: string | null) => void;
@@ -16,14 +17,8 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Obtener direcciones de contratos desde variables de entorno
-  // Usar useMemo para evitar recrear en cada render
-  const usdTokenAddress = typeof window !== 'undefined' 
-    ? (process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS || '')
-    : '';
-  const eurTokenAddress = typeof window !== 'undefined'
-    ? (process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS || '')
-    : '';
+  const usdTokenAddress = USD_TOKEN_ADDRESS;
+  const eurTokenAddress = EUR_TOKEN_ADDRESS;
 
   useEffect(() => {
     // Verificar si hay una cuenta conectada
@@ -209,7 +204,7 @@ export default function WalletConnect({ onAddressChange, refreshTrigger }: Walle
       {error && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded mb-4">
           <p className="text-sm">{error}</p>
-          <p className="text-xs mt-1">Verifica que Anvil esté corriendo en http://localhost:8545</p>
+          <p className="text-xs mt-1">Verifica que Anvil esté corriendo en {RPC_URL}</p>
         </div>
       )}
       

@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
 import dotenv from 'dotenv';
+import { RPC_URL } from '../config.js';
 
 dotenv.config();
 
@@ -26,7 +27,6 @@ function initializeOracle() {
     return oracleContract;
   }
 
-  const rpcUrl = process.env.RPC_URL || 'http://localhost:8545';
   const oracleAddress = process.env.EXCHANGE_RATE_ORACLE_ADDRESS;
 
   if (!oracleAddress) {
@@ -34,7 +34,7 @@ function initializeOracle() {
   }
 
   try {
-    provider = new ethers.JsonRpcProvider(rpcUrl);
+    provider = new ethers.JsonRpcProvider(RPC_URL);
     oracleContract = new ethers.Contract(oracleAddress, ORACLE_ABI, provider);
     return oracleContract;
   } catch (error) {

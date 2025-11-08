@@ -11,7 +11,7 @@ import { getIPFSImageUrl } from '@/lib/ipfs';
 import { convertUSDTtoEURT } from '@/lib/exchangeRate';
 import { dispatchCartUpdated, dispatchTokenBalanceUpdated, CART_EVENTS } from '@/lib/cartEvents';
 import { logger } from '@/lib/logger';
-import { CONTRACTS } from '@/lib/constants';
+import { CONTRACTS, PAYMENT_GATEWAY_URL } from '@/lib/constants';
 import BuyTokensButton from '@/components/BuyTokensButton';
 import Header from '@/components/Header';
 import CurrencySelector from '@/components/CurrencySelector';
@@ -294,10 +294,9 @@ export default function CartPage() {
 
       // Redirigir a pasarela de pago
       // IMPORTANTE: merchant_address es la dirección de la empresa, NO la del token
-      const paymentGatewayUrl = process.env.NEXT_PUBLIC_PAYMENT_GATEWAY_URL || 'http://localhost:6002';
       const amount = formatTokenAmount(totalAmount, selectedToken.decimals);
       
-      const redirectUrl = `${paymentGatewayUrl}/?merchant_address=${merchantAddress}&amount=${amount}&invoice=${invoiceId}&redirect=${encodeURIComponent(window.location.origin + '/orders')}`;
+      const redirectUrl = `${PAYMENT_GATEWAY_URL}/?merchant_address=${merchantAddress}&amount=${amount}&invoice=${invoiceId}&redirect=${encodeURIComponent(window.location.origin + '/orders')}`;
       
       window.location.href = redirectUrl;
     } catch (err: unknown) {

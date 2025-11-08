@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { RPC_URL } from '@/lib/config';
 
 /**
  * API Route que actúa como proxy para las llamadas RPC
@@ -6,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function POST(request: NextRequest) {
   try {
-    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545';
+    const rpcUrl = RPC_URL;
     
     const body = await request.json();
     

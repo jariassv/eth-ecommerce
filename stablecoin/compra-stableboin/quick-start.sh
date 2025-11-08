@@ -24,6 +24,7 @@ echo -e "${GREEN}✅ .env.local encontrado${NC}"
 
 # Verificar variables críticas
 source .env.local 2>/dev/null || true
+RPC_URL_VALUE="${NEXT_PUBLIC_RPC_URL:-${RPC_URL:-http://localhost:8545}}"
 
 if [ -z "$NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS" ]; then
     echo -e "${RED}❌ NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS no configurada${NC}"
@@ -43,8 +44,8 @@ fi
 echo -e "${GREEN}✅ Variables de entorno críticas configuradas${NC}"
 
 # Verificar que Anvil está corriendo
-if ! curl -s http://localhost:8545 > /dev/null 2>&1; then
-    echo -e "${YELLOW}⚠️  Anvil no parece estar corriendo en localhost:8545${NC}"
+if ! curl -s "$RPC_URL_VALUE" > /dev/null 2>&1; then
+    echo -e "${YELLOW}⚠️  Anvil no parece estar corriendo en $RPC_URL_VALUE${NC}"
     echo -e "${YELLOW}💡 Inicia Anvil en otra terminal: anvil${NC}"
 else
     echo -e "${GREEN}✅ Anvil está corriendo${NC}"
@@ -59,7 +60,7 @@ echo ""
 echo -e "${GREEN}🚀 Configuración básica verificada!${NC}"
 echo ""
 echo -e "${YELLOW}📋 Checklist de inicio:${NC}"
-echo "  [ ] Anvil corriendo en puerto 8545"
+echo "  [ ] Anvil corriendo en $RPC_URL_VALUE"
 echo "  [ ] Contrato USDToken desplegado"
 echo "  [ ] MetaMask configurado con red local"
 echo "  [ ] Stripe CLI corriendo (stripe listen) o ngrok configurado"

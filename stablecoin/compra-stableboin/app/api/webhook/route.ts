@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { ethers } from 'ethers';
+import { EUR_TOKEN_ADDRESS, RPC_URL, USD_TOKEN_ADDRESS } from '@/lib/config';
 
 function getStripeInstance(): Stripe {
   const secretKey = process.env.STRIPE_SECRET_KEY;
@@ -32,8 +33,7 @@ async function mintTokens(
   tokenType: string = 'USDT'
 ): Promise<string> {
   // Crear provider usando RPC URL
-  const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545';
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const provider = new ethers.JsonRpcProvider(RPC_URL);
 
   // La clave privada del owner del contrato (debe estar en variables de entorno)
   const ownerPrivateKey = process.env.OWNER_PRIVATE_KEY;
@@ -96,9 +96,7 @@ export async function POST(request: NextRequest) {
     const tokenType = paymentIntent.metadata.tokenType || 'USDT';
     
     // Obtener la dirección del contrato según el tipo de token
-    const contractAddress = tokenType === 'EURT' 
-      ? process.env.NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS
-      : process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS;
+    const contractAddress = tokenType === 'EURT' ? EUR_TOKEN_ADDRESS : USD_TOKEN_ADDRESS;
 
     console.log('📋 Datos extraídos:', {
       walletAddress,

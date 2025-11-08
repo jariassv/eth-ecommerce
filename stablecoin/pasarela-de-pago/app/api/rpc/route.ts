@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ethers } from 'ethers';
+import { RPC_URL } from '@/lib/config';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { method, params } = body;
 
-    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545';
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
 
     // Realizar la llamada RPC
     const result = await provider.send(method, params || []);

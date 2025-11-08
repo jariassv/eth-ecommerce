@@ -1,4 +1,5 @@
 import { ethers } from 'ethers';
+import { RPC_URL } from '@/lib/config';
 
 declare global {
   interface Window {
@@ -123,8 +124,7 @@ export async function getTokenBalance(
       throw error;
     }
   } else {
-    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545';
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
     
     const abi = ['function balanceOf(address) view returns (uint256)'];
     const contract = new ethers.Contract(contractAddress, abi, provider);
@@ -167,8 +167,7 @@ export async function getTokenAllowance(
       throw error;
     }
   } else {
-    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545';
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
     
     const abi = ['function allowance(address,address) view returns (uint256)'];
     const contract = new ethers.Contract(contractAddress, abi, provider);

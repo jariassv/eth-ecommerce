@@ -1,4 +1,5 @@
 import { ethers } from 'ethers';
+import { RPC_URL } from '@/lib/config';
 
 declare global {
   interface Window {
@@ -138,15 +139,14 @@ export async function getTokenBalance(
       console.error('❌ Error al obtener balance:', error);
       if (error instanceof Error) {
         if (error.message.includes('fetch') || error.message.includes('Network') || error.message.includes('RPC')) {
-          throw new Error('Error de red. Verifica que Anvil esté corriendo en http://localhost:8545');
+          throw new Error(`Error de red. Verifica que Anvil esté corriendo en ${RPC_URL}`);
         }
       }
       throw error;
     }
   } else {
     // En el servidor, usar conexión directa
-    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545';
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
     
     const abi = ['function balanceOf(address) view returns (uint256)'];
     const contract = new ethers.Contract(contractAddress, abi, provider);
