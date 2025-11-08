@@ -5,17 +5,19 @@ import { useWallet } from '@/hooks/useWallet';
 import { formatTokenAmount } from '@/lib/ethers';
 import BuyTokensButton from './BuyTokensButton';
 
+type RequiredAmounts = Partial<Record<SupportedCurrency, bigint>>;
+
 interface CurrencySelectorProps {
   selectedCurrency: SupportedCurrency;
   onCurrencyChange: (currency: SupportedCurrency) => void;
-  requiredAmount?: bigint;
+  requiredAmounts?: RequiredAmounts;
   showBalance?: boolean;
 }
 
 export default function CurrencySelector({
   selectedCurrency,
   onCurrencyChange,
-  requiredAmount,
+  requiredAmounts,
   showBalance = true,
 }: CurrencySelectorProps) {
   const { provider, address } = useWallet();
@@ -24,6 +26,14 @@ export default function CurrencySelector({
   const selectedToken = getSelectedToken();
   const usdtToken = tokens.get('USDT');
   const eurtToken = tokens.get('EURT');
+  const requiredUSDT = requiredAmounts?.USDT;
+  const requiredEURT = requiredAmounts?.EURT;
+  const requiredSelectedCurrency =
+    requiredAmounts && requiredAmounts[selectedCurrency] !== undefined
+      ? requiredAmounts[selectedCurrency]
+      : selectedCurrency === 'EURT'
+        ? (requiredEURT ?? requiredUSDT)
+        : requiredUSDT;
 
   if (!address) {
     return (
@@ -45,7 +55,7 @@ export default function CurrencySelector({
           {/* USDT Option */}
           <div
             onClick={() => {
-              if (usdtToken) {
+              if (selectedCurrency !== 'USDT') {
                 onCurrencyChange('USDT');
               }
             }}
@@ -53,7 +63,7 @@ export default function CurrencySelector({
               selectedCurrency === 'USDT'
                 ? 'border-indigo-600 bg-indigo-50'
                 : 'border-gray-200 hover:border-gray-300'
-            } ${!usdtToken ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            } cursor-pointer`}
           >
             <div className="flex items-center justify-between mb-2">
               <span className="font-semibold text-gray-900">USDT</span>
@@ -66,9 +76,9 @@ export default function CurrencySelector({
             {showBalance && usdtToken && (
               <div className="text-sm text-gray-600">
                 <p>Balance: <span className="font-semibold">{usdtToken.balanceFormatted}</span></p>
-                {requiredAmount !== undefined && (
-                  <p className={`mt-1 ${usdtToken.balance >= requiredAmount ? 'text-green-600' : 'text-red-600'}`}>
-                    {usdtToken.balance >= requiredAmount ? '✓ Saldo suficiente' : '✗ Saldo insuficiente'}
+                {requiredUSDT !== undefined && (
+                  <p className={`mt-1 ${usdtToken.balance >= requiredUSDT ? 'text-green-600' : 'text-red-600'}`}>
+                    {usdtToken.balance >= requiredUSDT ? '✓ Saldo suficiente' : '✗ Saldo insuficiente'}
                   </p>
                 )}
               </div>
@@ -78,7 +88,7 @@ export default function CurrencySelector({
           {/* EURT Option */}
           <div
             onClick={() => {
-              if (eurtToken) {
+              if (selectedCurrency !== 'EURT') {
                 onCurrencyChange('EURT');
               }
             }}
@@ -86,7 +96,7 @@ export default function CurrencySelector({
               selectedCurrency === 'EURT'
                 ? 'border-indigo-600 bg-indigo-50'
                 : 'border-gray-200 hover:border-gray-300'
-            } ${!eurtToken ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            } cursor-pointer`}
           >
             <div className="flex items-center justify-between mb-2">
               <span className="font-semibold text-gray-900">EURT</span>
@@ -99,9 +109,9 @@ export default function CurrencySelector({
             {showBalance && eurtToken && (
               <div className="text-sm text-gray-600">
                 <p>Balance: <span className="font-semibold">{eurtToken.balanceFormatted}</span></p>
-                {requiredAmount !== undefined && (
-                  <p className={`mt-1 ${eurtToken.balance >= requiredAmount ? 'text-green-600' : 'text-red-600'}`}>
-                    {eurtToken.balance >= requiredAmount ? '✓ Saldo suficiente' : '✗ Saldo insuficiente'}
+                {requiredEURT !== undefined && (
+                  <p className={`mt-1 ${eurtToken.balance >= requiredEURT ? 'text-green-600' : 'text-red-600'}`}>
+                    {eurtToken.balance >= requiredEURT ? '✓ Saldo suficiente' : '✗ Saldo insuficiente'}
                   </p>
                 )}
               </div>
@@ -111,27 +121,19 @@ export default function CurrencySelector({
       </div>
 
       {/* Warnings */}
-      {selectedToken && requiredAmount !== undefined && (
+      {selectedToken && requiredSelectedCurrency !== undefined && (
         <div className="space-y-2">
           {(() => {
             // Calcular directamente si hay suficiente balance
-            const hasSufficientBalance = selectedToken.balance >= requiredAmount;
-            const needsApproval = selectedToken.allowance < requiredAmount;
+            const hasSufficientBalance = selectedToken.balance >= requiredSelectedCurrency;
             
             return (
               <>
                 {!hasSufficientBalance && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                     <p className="text-sm text-red-800">
-                      <strong>Saldo insuficiente:</strong> Necesitas {formatTokenAmount(requiredAmount, selectedToken.decimals)} {selectedCurrency} 
+                      <strong>Saldo insuficiente:</strong> Necesitas {formatTokenAmount(requiredSelectedCurrency, selectedToken.decimals)} {selectedCurrency} 
                       pero tienes {selectedToken.balanceFormatted} {selectedCurrency}
-                    </p>
-                  </div>
-                )}
-                {needsApproval && hasSufficientBalance && (
-                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-sm text-yellow-800">
-                      <strong>Aprobación necesaria:</strong> Necesitas aprobar el contrato para gastar {selectedCurrency}
                     </p>
                   </div>
                 )}

@@ -133,8 +133,13 @@ export default function CartPage() {
   
   // Calcular si hay saldo insuficiente
   const selectedToken = getSelectedToken();
-  const requiredAmount = selectedCurrency === 'EURT' && rate ? convertUSDTtoEURT(total, rate) : total;
-  const hasInsufficientBalance = selectedToken && total > BigInt(0) && selectedToken.balance < requiredAmount;
+  const requiredAmountUSDT = total;
+  const requiredAmountEURT = rate ? convertUSDTtoEURT(total, rate) : undefined;
+  const requiredAmountSelected =
+    selectedCurrency === 'EURT'
+      ? (requiredAmountEURT ?? requiredAmountUSDT)
+      : requiredAmountUSDT;
+  const hasInsufficientBalance = selectedToken && total > BigInt(0) && selectedToken.balance < requiredAmountSelected;
   const hasZeroBalance = total > BigInt(0) && (!selectedToken || selectedToken.balance === BigInt(0));
 
   useEffect(() => {
@@ -218,9 +223,9 @@ export default function CartPage() {
     }
 
     // Recalcular requiredAmount
-    let requiredAmount = total; // Por defecto USDT
-    if (selectedCurrency === 'EURT' && rate) {
-      requiredAmount = convertUSDTtoEURT(total, rate);
+    let requiredAmount = requiredAmountUSDT;
+    if (selectedCurrency === 'EURT') {
+      requiredAmount = requiredAmountEURT ?? requiredAmountUSDT;
     }
     
     // Obtener token seleccionado (los tokens ya están cargados por el useEffect)
@@ -407,7 +412,10 @@ export default function CartPage() {
                         }
                       }, 200);
                     }}
-                    requiredAmount={selectedCurrency === 'EURT' && rate ? convertUSDTtoEURT(total, rate) : total}
+                    requiredAmounts={{
+                      USDT: requiredAmountUSDT,
+                      EURT: requiredAmountEURT,
+                    }}
                     showBalance={true}
                   />
                 </div>

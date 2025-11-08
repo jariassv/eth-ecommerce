@@ -115,8 +115,13 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
   
   // Calcular si hay saldo insuficiente
   const selectedToken = getSelectedToken();
-  const requiredAmount = selectedCurrency === 'EURT' && rate ? convertUSDTtoEURT(total, rate) : total;
-  const hasInsufficientBalance = selectedToken && total > 0n && selectedToken.balance < requiredAmount;
+  const requiredAmountUSDT = total;
+  const requiredAmountEURT = rate ? convertUSDTtoEURT(total, rate) : undefined;
+  const requiredAmountSelected =
+    selectedCurrency === 'EURT'
+      ? (requiredAmountEURT ?? requiredAmountUSDT)
+      : requiredAmountUSDT;
+  const hasInsufficientBalance = selectedToken && total > 0n && selectedToken.balance < requiredAmountSelected;
   const hasZeroBalance = total > 0n && (!selectedToken || selectedToken.balance === 0n);
 
   const USD_TOKEN_ADDRESS = typeof window !== 'undefined'
@@ -215,9 +220,9 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
     }
 
     // Recalcular requiredAmount y recargar tokens para asegurar validación correcta
-    let requiredAmount = total;
-    if (selectedCurrency === 'EURT' && rate) {
-      requiredAmount = convertUSDTtoEURT(total, rate);
+    let requiredAmount = requiredAmountUSDT;
+    if (selectedCurrency === 'EURT') {
+      requiredAmount = requiredAmountEURT ?? requiredAmountUSDT;
     }
     
     // Recargar tokens con el amount correcto antes de validar
@@ -405,7 +410,10 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
                     }
                   }, 200);
                 }}
-                requiredAmount={selectedCurrency === 'EURT' && rate ? convertUSDTtoEURT(total, rate) : total}
+                requiredAmounts={{
+                  USDT: requiredAmountUSDT,
+                  EURT: requiredAmountEURT,
+                }}
                 showBalance={true}
               />
             </div>
