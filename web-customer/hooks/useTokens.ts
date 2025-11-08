@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ethers } from 'ethers';
 import { ERC20_ABI } from '@/lib/contracts';
 import { formatTokenAmount } from '@/lib/ethers';
-import { CONTRACTS } from '@/lib/constants';
+import { CONTRACTS, RPC_URL } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import { CART_EVENTS } from '@/lib/cartEvents';
 
@@ -43,6 +43,7 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
   const [selectedCurrency, setSelectedCurrency] = useState<SupportedCurrency>(getInitialCurrency());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const readProviderRef = useRef<ethers.JsonRpcProvider | null>(null);
   const lastRequiredAmountRef = useRef<bigint | undefined>(undefined);
   const lastRateRef = useRef<number | undefined>(undefined);
 
@@ -81,12 +82,20 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
     };
   }, [selectedCurrency]);
 
+  const getReadProvider = useCallback((): ethers.JsonRpcProvider => {
+    if (!readProviderRef.current) {
+      readProviderRef.current = new ethers.JsonRpcProvider(RPC_URL);
+    }
+    return readProviderRef.current;
+  }, []);
+
   const loadTokenInfo = useCallback(async (tokenAddress: string, currency: SupportedCurrency): Promise<TokenInfo> => {
-    if (!provider || !address || !tokenAddress) {
-      throw new Error('Provider, address, or token address not available');
+    if (!address || !tokenAddress) {
+      throw new Error('Address or token address not available');
     }
 
-    const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
+    const readProvider = getReadProvider();
+    const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, readProvider);
     
     const [symbol, name, decimals, balance, allowance] = await Promise.all([
       tokenContract.symbol(),
@@ -112,11 +121,15 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
       hasSufficientBalance: false, // Se calculará después
       needsApproval: false, // Se calculará después
     };
-  }, [provider, address]);
+  }, [address, getReadProvider]);
 
   const loadTokens = useCallback(async (requiredAmountUSDT?: bigint, rate?: number) => {
-    lastRequiredAmountRef.current = requiredAmountUSDT;
-    lastRateRef.current = rate;
+    if (requiredAmountUSDT !== undefined) {
+      lastRequiredAmountRef.current = requiredAmountUSDT;
+    }
+    if (rate !== undefined) {
+      lastRateRef.current = rate;
+    }
 
     if (!provider || !address) {
       setTokens(new Map());
