@@ -66,9 +66,9 @@ export default function RegisterPage() {
     try {
       const companyId = await registerCompany(companyAddress.trim(), name.trim(), taxId.trim());
       setSuccess(true);
-      notifySuccess('Empresa registrada', 'Redirigiendo al panel de gestión...');
+      notifySuccess('Empresa registrada', 'Redirigiendo al panel global...');
       setTimeout(() => {
-        router.push(`/company/${companyId.toString()}`);
+        router.push('/admin');
       }, 2000);
     } catch (err: unknown) {
       logger.error('Error registering company:', err);
