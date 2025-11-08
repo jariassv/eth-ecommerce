@@ -14,6 +14,7 @@ export default function Home() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment') === 'success') {
       setPaymentStatus('success');
+      setRefreshTrigger(prev => prev + 1);
       
       // Enviar postMessage al parent window si está en un iframe
       try {
