@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ethers } from 'ethers';
 import { ERC20_ABI } from '@/lib/contracts';
 import { formatTokenAmount } from '@/lib/ethers';
 import { CONTRACTS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
+import { CART_EVENTS } from '@/lib/cartEvents';
 
 const USD_TOKEN_ADDRESS = CONTRACTS.USD_TOKEN;
 const EUR_TOKEN_ADDRESS = CONTRACTS.EUR_TOKEN;
@@ -42,42 +43,41 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
   const [selectedCurrency, setSelectedCurrency] = useState<SupportedCurrency>(getInitialCurrency());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const lastRequiredAmountRef = useRef<bigint | undefined>(undefined);
+  const lastRateRef = useRef<number | undefined>(undefined);
 
-  // Guardar moneda seleccionada en localStorage y disparar evento
+  // Guardar moneda seleccionada en localStorage (sin disparar evento para evitar loops)
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('selectedCurrency', selectedCurrency);
-      // Disparar evento personalizado para que otros componentes se actualicen
-      window.dispatchEvent(new CustomEvent('currencyChanged', { detail: selectedCurrency }));
+      const currentStored = localStorage.getItem('selectedCurrency');
+      // Solo actualizar si es diferente para evitar loops
+      if (currentStored !== selectedCurrency) {
+        localStorage.setItem('selectedCurrency', selectedCurrency);
+        // Disparar evento personalizado solo para otros componentes (no para el mismo hook)
+        window.dispatchEvent(new CustomEvent('currencyChanged', { detail: selectedCurrency }));
+      }
     }
   }, [selectedCurrency]);
 
-  // Escuchar cambios en localStorage desde otras pestañas o componentes
+  // Escuchar cambios en localStorage desde otras pestañas o componentes (pero no desde el mismo componente)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'selectedCurrency' && e.newValue) {
+      // Solo escuchar cambios de otras pestañas/ventanas, no del mismo componente
+      if (e.key === 'selectedCurrency' && e.newValue && e.newValue !== selectedCurrency) {
         const newCurrency = e.newValue as SupportedCurrency;
-        if ((newCurrency === 'USDT' || newCurrency === 'EURT') && newCurrency !== selectedCurrency) {
+        if ((newCurrency === 'USDT' || newCurrency === 'EURT')) {
           setSelectedCurrency(newCurrency);
         }
       }
     };
 
-    const handleCurrencyChange = (e: CustomEvent) => {
-      const newCurrency = e.detail as SupportedCurrency;
-      if (newCurrency !== selectedCurrency) {
-        setSelectedCurrency(newCurrency);
-      }
-    };
-
+    // No escuchar currencyChanged para evitar loops - cada instancia del hook maneja su propio estado
     window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('currencyChanged', handleCurrencyChange as EventListener);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('currencyChanged', handleCurrencyChange as EventListener);
     };
   }, [selectedCurrency]);
 
@@ -115,6 +115,9 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
   }, [provider, address]);
 
   const loadTokens = useCallback(async (requiredAmountUSDT?: bigint, rate?: number) => {
+    lastRequiredAmountRef.current = requiredAmountUSDT;
+    lastRateRef.current = rate;
+
     if (!provider || !address) {
       setTokens(new Map());
       return;
@@ -220,6 +223,25 @@ export function useTokens(provider: ethers.BrowserProvider | null, address: stri
       setTokens(new Map());
     }
   }, [provider, address, loadTokens]);
+
+  // Recargar tokens automáticamente cuando se dispare el evento global de actualización
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleTokenBalanceUpdated = () => {
+      const requiredAmount = lastRequiredAmountRef.current;
+      const rateValue = lastRateRef.current;
+
+      loadTokens(requiredAmount, rateValue).catch(err => {
+        logger.error('Error reloading tokens after balance update event:', err);
+      });
+    };
+
+    window.addEventListener(CART_EVENTS.TOKEN_BALANCE_UPDATED, handleTokenBalanceUpdated);
+    return () => {
+      window.removeEventListener(CART_EVENTS.TOKEN_BALANCE_UPDATED, handleTokenBalanceUpdated);
+    };
+  }, [loadTokens]);
 
   const getSelectedToken = useCallback((): TokenInfo | null => {
     return tokens.get(selectedCurrency) || null;
