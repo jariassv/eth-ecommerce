@@ -3,11 +3,23 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/hooks/useWallet';
 import { useEcommerce } from '@/hooks/useEcommerce';
-import { Invoice } from '@/lib/contracts';
+import { Invoice, Product } from '@/lib/contracts';
 import { formatTokenAmount } from '@/lib/ethers';
 import { logger } from '@/lib/logger';
 import Header from '@/components/Header';
 import Link from 'next/link';
+import { getIPFSImageUrl } from '@/lib/ipfs';
+
+interface InvoiceItemDetail {
+  productId: bigint;
+  quantity: bigint;
+  productName: string;
+  productDescription: string;
+  unitPrice: bigint;
+  totalPrice: bigint;
+  imageUrl: string;
+  companyId: bigint;
+}
 
 // Helper para obtener la dirección de EURT (consistente con useTokens)
 const EUR_TOKEN_ADDRESS = typeof window !== 'undefined'
@@ -16,10 +28,12 @@ const EUR_TOKEN_ADDRESS = typeof window !== 'undefined'
 
 export default function OrdersPage() {
   const { provider, address, isConnected } = useWallet();
-  const { getMyInvoices, loading, isReady } = useEcommerce(provider, address);
+  const { getMyInvoices, getInvoiceItems, getProduct, loading, isReady } = useEcommerce(provider, address);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [invoiceDetails, setInvoiceDetails] = useState<Map<string, InvoiceItemDetail[]>>(new Map());
+  const [loadingInvoiceDetails, setLoadingInvoiceDetails] = useState(false);
 
 
   useEffect(() => {
@@ -48,12 +62,71 @@ export default function OrdersPage() {
         return 0;
       });
       setInvoices(allInvoices);
+      // Cargar detalles de facturas de forma asíncrona
+      loadInvoiceDetails(allInvoices);
     } catch (err: unknown) {
       logger.error('Error loading invoices:', err);
       const errorMessage = err instanceof Error ? err.message : 'Error al cargar facturas';
       setError(errorMessage);
     } finally {
       setLoadingInvoices(false);
+    }
+  };
+
+  const loadInvoiceDetails = async (invoiceList: Invoice[]) => {
+    if (!invoiceList.length) {
+      setInvoiceDetails(new Map());
+      return;
+    }
+
+    setLoadingInvoiceDetails(true);
+    const productCache = new Map<string, Product>();
+
+    try {
+      const detailEntries = await Promise.all(
+        invoiceList.map(async (invoice) => {
+          try {
+            const items = await getInvoiceItems(invoice.invoiceId);
+            const detailedItems = await Promise.all(
+              items.map(async (item) => {
+                const productIdStr = item.productId.toString();
+                let product = productCache.get(productIdStr);
+                if (!product) {
+                  product = await getProduct(item.productId);
+                  productCache.set(productIdStr, product);
+                }
+
+                const imageUrl = product.ipfsImageHash
+                  ? getIPFSImageUrl(product.ipfsImageHash)
+                  : '/placeholder-product.png';
+
+                return {
+                  productId: item.productId,
+                  quantity: item.quantity,
+                  productName: product.name,
+                  productDescription: product.description,
+                  unitPrice: product.price,
+                  totalPrice: product.price * item.quantity,
+                  imageUrl,
+                  companyId: product.companyId,
+                } as InvoiceItemDetail;
+              })
+            );
+
+            return [invoice.invoiceId.toString(), detailedItems] as const;
+          } catch (err) {
+            logger.error(`Error loading details for invoice ${invoice.invoiceId.toString()}:`, err);
+            return [invoice.invoiceId.toString(), []] as const;
+          }
+        })
+      );
+
+      setInvoiceDetails(new Map(detailEntries));
+    } catch (err) {
+      logger.error('Error loading invoice details:', err);
+      setInvoiceDetails(new Map());
+    } finally {
+      setLoadingInvoiceDetails(false);
     }
   };
 
@@ -115,7 +188,7 @@ export default function OrdersPage() {
           </div>
         )}
 
-        {loadingInvoices || loading ? (
+        {loadingInvoices || (loading && invoices.length === 0) ? (
           <div className="text-center py-16">
             <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-indigo-600 border-t-transparent"></div>
             <p className="mt-4 text-gray-600 text-lg font-medium">Cargando pedidos...</p>
@@ -159,10 +232,12 @@ export default function OrdersPage() {
               
               const amount = formatTokenAmount(invoice.totalAmount, 6);
               const currencySymbol = paymentCurrency === 'EURT' ? '€' : '$';
+              const invoiceIdStr = invoice.invoiceId.toString();
+              const details = invoiceDetails.get(invoiceIdStr) || [];
               
               return (
                 <div
-                  key={invoice.invoiceId.toString()}
+                  key={invoiceIdStr}
                   className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow border border-gray-200 overflow-hidden"
                 >
                   <div className="p-6">
@@ -216,7 +291,9 @@ export default function OrdersPage() {
                     <div className="grid md:grid-cols-3 gap-4 pt-4 border-t border-gray-100">
                       <div>
                         <p className="text-xs text-gray-500 font-medium mb-1">Items</p>
-                        <p className="font-semibold text-gray-900">{invoice.itemCount.toString()} productos</p>
+                        <p className="font-semibold text-gray-900">
+                          {invoice.itemCount.toString()} producto{invoice.itemCount === 1n ? '' : 's'}
+                        </p>
                       </div>
                       {invoice.isPaid && invoice.paymentTxHash && (
                         <div className="md:col-span-2">
@@ -224,6 +301,76 @@ export default function OrdersPage() {
                           <p className="font-mono text-xs break-all text-gray-700 bg-gray-50 p-2 rounded">
                             {invoice.paymentTxHash}
                           </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-5 border-t border-gray-100 pt-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                          Detalles de la compra
+                        </h4>
+                        {loadingInvoiceDetails && (
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <div className="w-3 h-3 border border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                            Actualizando...
+                          </div>
+                        )}
+                      </div>
+
+                      {details.length === 0 ? (
+                        <p className="text-sm text-gray-500">
+                          {loadingInvoiceDetails
+                            ? 'Cargando detalle de los productos...'
+                            : 'No se encontraron productos en la factura.'}
+                        </p>
+                      ) : (
+                        <div className="space-y-4">
+                          {details.map((detail) => {
+                            const subtotal = formatTokenAmount(detail.totalPrice, 6);
+                            const unitPrice = formatTokenAmount(detail.unitPrice, 6);
+                            const description =
+                              detail.productDescription && detail.productDescription.length > 160
+                                ? `${detail.productDescription.slice(0, 160)}…`
+                                : detail.productDescription || 'Sin descripción disponible.';
+
+                            return (
+                              <div
+                                key={`${invoiceIdStr}-${detail.productId.toString()}`}
+                                className="flex gap-4"
+                              >
+                                <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                  <img
+                                    src={detail.imageUrl}
+                                    alt={detail.productName}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = '/placeholder-product.png';
+                                    }}
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                      <p className="font-semibold text-gray-900">{detail.productName}</p>
+                                      <p className="text-sm text-gray-600 mt-1">{description}</p>
+                                    </div>
+                                    <div className="text-right flex-shrink-0">
+                                      <p className="text-sm font-semibold text-gray-900">
+                                        Cantidad: {detail.quantity.toString()}
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        Precio unitario: ${unitPrice} USDT
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="mt-2 text-sm font-medium text-indigo-700">
+                                    Subtotal (USDT base): ${subtotal}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
