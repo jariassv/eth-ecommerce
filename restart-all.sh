@@ -517,14 +517,11 @@ if [[ $REPLY =~ ^[Ss]$ ]]; then
     sleep 3
     
     print_success "Aplicaciones iniciadas:"
-    printf "%-24s %-32s %s\n" "Servicio" "URL" "Log"
-    printf "%-24s %-32s %s\n" "--------" "--------------------------------" "----------------------------------------------"
-    printf "%-24s %-32s %s\n" "Compra Stablecoin" "http://localhost:$COMPRA_PORT" "${COMPRA_LOG:-N/A}"
-    printf "%-24s %-32s %s\n" "Pasarela de Pagos" "http://localhost:$PASA_PORT" "${PASARELA_LOG:-N/A}"
-    printf "%-24s %-32s %s\n" "Web Customer" "http://localhost:$CUSTOMER_PORT" "${CUSTOMER_LOG:-N/A}"
-    printf "%-24s %-32s %s\n" "Web Admin" "http://localhost:$ADMIN_PORT" "${ADMIN_LOG:-N/A}"
-    printf "%-24s %-32s %s\n" "Oracle API" "http://localhost:$ORACLE_API_PORT" "${ORACLE_API_LOG:-N/A}"
-    print_info "Logs disponibles en $LOG_ROOT/<servicio>/*.log"
+    echo "  Compra Stablecoin: http://localhost:$COMPRA_PORT"
+    echo "  Pasarela de Pagos: http://localhost:$PASA_PORT"
+    echo "  Web Customer: http://localhost:$CUSTOMER_PORT"
+    echo "  Web Admin: http://localhost:$ADMIN_PORT"
+    echo "  Oracle API: http://localhost:$ORACLE_API_PORT"
 else
     print_info "Para iniciar las aplicaciones manualmente:"
     echo "  cd stablecoin/compra-stableboin && PORT=$COMPRA_PORT npm run dev -- --port $COMPRA_PORT"

@@ -176,10 +176,11 @@ export default function CartPage() {
     };
   }, [address, isReady, total, rate, loadTokens]);
 
-  const loadCart = async () => {
+  const loadCart = async (): Promise<bigint> => {
+    let cartTotal = BigInt(0);
     if (!isReady || !address) {
       setLoadingCart(false);
-      return;
+      return cartTotal;
     }
 
     try {
@@ -202,7 +203,7 @@ export default function CartPage() {
       setProducts(productsMap);
 
       // Calcular total
-      const cartTotal = await getCartTotal();
+      cartTotal = await getCartTotal();
       setTotal(cartTotal);
       
       // Recargar tokens con el total requerido (no recargar aquí, se recargará cuando cambie la moneda)
@@ -213,6 +214,7 @@ export default function CartPage() {
     } finally {
       setLoadingCart(false);
     }
+    return cartTotal;
   };
 
   const handleCheckout = async () => {
@@ -290,7 +292,10 @@ export default function CartPage() {
         paymentTokenAddress,
         total // expectedTotalUSDT - total del carrito en USDT
       );
-      await loadCart();
+      const updatedTotal = await loadCart();
+      if (address && isReady && updatedTotal > BigInt(0)) {
+        await loadTokens(updatedTotal, rate ?? undefined);
+      }
 
       // Redirigir a pasarela de pago
       // IMPORTANTE: merchant_address es la dirección de la empresa, NO la del token
@@ -462,9 +467,9 @@ export default function CartPage() {
                             // Disparar evento de actualización de balance
                             dispatchTokenBalanceUpdated();
                             // Recargar carrito y tokens después de compra
-                            await loadCart();
-                            if (address && isReady && total > BigInt(0)) {
-                              await loadTokens(total, rate ?? undefined);
+                            const updatedTotal = await loadCart();
+                            if (address && isReady && updatedTotal > BigInt(0)) {
+                              await loadTokens(updatedTotal, rate ?? undefined);
                             }
                           }}
                         />

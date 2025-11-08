@@ -109,7 +109,7 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
   const { rate, rateInfo, loading: loadingRate, error: rateError } = useExchangeRate();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Map<string, Product>>(new Map());
-  const [total, setTotal] = useState<bigint>(0n);
+  const [total, setTotal] = useState<bigint>(BigInt(0));
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [approving, setApproving] = useState(false);
@@ -124,8 +124,8 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
     selectedCurrency === 'EURT'
       ? (requiredAmountEURT ?? requiredAmountUSDT)
       : requiredAmountUSDT;
-  const hasInsufficientBalance = selectedToken && total > 0n && selectedToken.balance < requiredAmountSelected;
-  const hasZeroBalance = total > 0n && (!selectedToken || selectedToken.balance === 0n);
+  const hasInsufficientBalance = selectedToken && total > BigInt(0) && selectedToken.balance < requiredAmountSelected;
+  const hasZeroBalance = total > BigInt(0) && (!selectedToken || selectedToken.balance === BigInt(0));
 
   const USD_TOKEN_ADDRESS = typeof window !== 'undefined'
     ? (process.env.NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS || '')
@@ -150,7 +150,8 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
-  const loadCart = async () => {
+  const loadCart = async (): Promise<bigint> => {
+    let cartTotal = BigInt(0);
     try {
       setLoading(true);
       setError(null);
@@ -171,13 +172,8 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
       setProducts(productsMap);
 
       // Calcular total
-      const cartTotal = await getCartTotal();
+      cartTotal = await getCartTotal();
       setTotal(cartTotal);
-      
-      // Cargar tokens con el total requerido
-      if (cartTotal > 0n) {
-        await loadTokens(cartTotal, rate);
-      }
     } catch (err: unknown) {
       logger.error('Error loading cart:', err);
       const errorMessage = err instanceof Error ? err.message : 'Error al cargar carrito';
@@ -185,11 +181,12 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
     } finally {
       setLoading(false);
     }
+    return cartTotal;
   };
 
   // Recargar tokens cuando cambie el rate o el total (pero no cuando cambie selectedCurrency manualmente)
   useEffect(() => {
-    if (isOpen && address && isReady && total > 0n) {
+    if (isOpen && address && isReady && total > BigInt(0)) {
       // Recargar tokens cuando cambie el rate o el total
       loadTokens(total, rate);
     }
@@ -199,7 +196,7 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
   useEffect(() => {
     const handleTokenBalanceUpdate = () => {
       // Recargar tokens cuando se actualiza el balance
-      if (isOpen && address && isReady && total > 0n) {
+      if (isOpen && address && isReady && total > BigInt(0)) {
         loadTokens(total, rate).catch(err => {
           logger.error('Error loading tokens after balance update:', err);
         });
@@ -457,11 +454,11 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
                       onPurchaseComplete={async () => {
                         // Disparar evento de actualización de balance
                         dispatchTokenBalanceUpdated();
-                        // Recargar tokens y carrito después de comprar tokens
-                        if (address && provider) {
-                          await loadTokens(total, rate);
-                        }
-                        await loadCart();
+                          // Recargar carrito y tokens después de comprar tokens
+                          const updatedTotal = await loadCart();
+                          if (address && isReady && updatedTotal > 0n) {
+                            await loadTokens(updatedTotal, rate ?? undefined);
+                          }
                         if (onCartUpdate) {
                           onCartUpdate();
                         }
