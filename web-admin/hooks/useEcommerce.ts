@@ -223,6 +223,47 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     }
   }, [contract]);
 
+  const getCompanyCount = useCallback(async (): Promise<bigint> => {
+    if (!contract) throw new Error('Contrato no inicializado');
+
+    try {
+      const count = await contract.getCompanyCount();
+      return BigInt(count.toString());
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener cantidad de empresas';
+      setError(errorMessage);
+      throw err;
+    }
+  }, [contract]);
+
+  const getAllCompanies = useCallback(async (): Promise<Company[]> => {
+    if (!contract) throw new Error('Contrato no inicializado');
+
+    try {
+      const countBigInt = await getCompanyCount();
+      const count = Number(countBigInt);
+      if (count === 0) {
+        return [];
+      }
+
+      const companies: Company[] = [];
+      for (let i = 1; i <= count; i++) {
+        try {
+          const company = await contract.getCompany(BigInt(i));
+          companies.push(mapRawCompanyToCompany(company));
+        } catch (err) {
+          logger.error(`Error al obtener empresa ${i}:`, err);
+        }
+      }
+
+      return companies;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al obtener empresas';
+      setError(errorMessage);
+      throw err;
+    }
+  }, [contract, getCompanyCount]);
+
   // ============ PRODUCTOS ============
 
   const addProduct = useCallback(async (
@@ -476,6 +517,8 @@ export function useEcommerce(provider: ethers.BrowserProvider | null, address: s
     registerCompany,
     getCompany,
     getCompanyIdByAddress,
+    getCompanyCount,
+    getAllCompanies,
     // Productos
     addProduct,
     updateProduct,

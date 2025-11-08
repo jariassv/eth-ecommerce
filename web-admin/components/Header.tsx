@@ -5,10 +5,12 @@ import { useWallet } from '@/hooks/useWallet';
 
 interface HeaderProps {
   companyName?: string;
+  isContractAdmin?: boolean;
 }
 
-export default function Header({ companyName }: HeaderProps) {
+export default function Header({ companyName, isContractAdmin = false }: HeaderProps) {
   const { address, isConnected, disconnect } = useWallet();
+  const title = isContractAdmin ? 'Contract Panel' : 'Company Panel';
 
   return (
     <header className="bg-white shadow-lg border-b border-gray-200 sticky top-0 z-50">
@@ -22,11 +24,13 @@ export default function Header({ companyName }: HeaderProps) {
             </div>
             <div>
               <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                Admin Panel
+                {title}
               </h1>
-              {companyName && (
+              {companyName ? (
                 <p className="text-xs text-gray-500">{companyName}</p>
-              )}
+              ) : isContractAdmin ? (
+                <p className="text-xs text-gray-500">Supervisión global del contrato</p>
+              ) : null}
             </div>
           </Link>
 
