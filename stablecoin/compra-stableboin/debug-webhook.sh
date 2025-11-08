@@ -87,7 +87,7 @@ if pgrep -f "stripe listen" > /dev/null; then
     echo -e "${GREEN}✅ stripe listen está corriendo${NC}"
 else
     echo -e "${RED}❌ stripe listen NO está corriendo${NC}"
-    echo -e "${YELLOW}💡 Ejecuta: stripe listen --forward-to localhost:3000/api/webhook${NC}"
+    echo -e "${YELLOW}💡 Ejecuta: stripe listen --forward-to localhost:6001/api/webhook${NC}"
 fi
 
 if pgrep -f "next dev" > /dev/null; then

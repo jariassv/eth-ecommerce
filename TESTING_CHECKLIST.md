@@ -142,7 +142,7 @@ Este documento proporciona un checklist completo para verificar que todo el sist
   - [ ] Dirección del cliente
   - [ ] Badge de verificación (si aplica)
 
-## 🛒 8. Web Customer - Tienda (http://localhost:6004)
+## 🛒 8. Web Customer - Tienda (http://localhost:6003)
 
 ### Catálogo
 - [ ] Aplicación carga correctamente

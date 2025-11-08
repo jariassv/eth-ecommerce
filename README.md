@@ -134,7 +134,7 @@ Obtén tu JWT en [pinata.cloud](https://pinata.cloud)
 - Compra Stablecoin: `http://localhost:6001`
 - Pasarela de Pago: `http://localhost:6002`
 - Web Admin: `http://localhost:6003`
-- Web Customer: `http://localhost:6004`
+- Web Customer: `http://localhost:6003`
 
 ## 🧪 Testing
 
@@ -198,7 +198,7 @@ npm test
    - Agregar productos con imágenes (IPFS)
    - Gestionar stock y precios
 
-4. **Comprar Productos** → http://localhost:6004
+4. **Comprar Productos** → http://localhost:6003
    - Navegar catálogo
    - Agregar al carrito
    - Crear factura

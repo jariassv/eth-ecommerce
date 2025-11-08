@@ -87,14 +87,14 @@ NEXT_PUBLIC_APP_URL=http://localhost:6003
 NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=0x...  # Configurado por restart-all.sh
 NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=0x...   # Configurado por restart-all.sh
 NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=0x...   # Configurado por restart-all.sh
-NEXT_PUBLIC_ORACLE_API_URL=http://localhost:3001  # Configurado por restart-all.sh
+NEXT_PUBLIC_ORACLE_API_URL=http://localhost:6005  # Configurado por restart-all.sh
 NEXT_PUBLIC_RPC_URL=http://localhost:8545     # Configurado por restart-all.sh
 NEXT_PUBLIC_CHAIN_ID=31337                    # Configurado por restart-all.sh
 ```
 
 #### Opcionales
 ```bash
-NEXT_PUBLIC_APP_URL=http://localhost:6004
+NEXT_PUBLIC_APP_URL=http://localhost:6003
 NEXT_PUBLIC_PAYMENT_GATEWAY_URL=http://localhost:6002
 ```
 
@@ -104,7 +104,7 @@ NEXT_PUBLIC_PAYMENT_GATEWAY_URL=http://localhost:6002
 ```bash
 RPC_URL=http://localhost:8545                 # Configurado por restart-all.sh
 EXCHANGE_RATE_ORACLE_ADDRESS=0x...            # Configurado por restart-all.sh
-PORT=3001                                     # Configurado por restart-all.sh
+PORT=6005                                     # Configurado por restart-all.sh
 NODE_ENV=development                          # Configurado por restart-all.sh
 ```
 

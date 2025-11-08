@@ -40,7 +40,7 @@ NEXT_PUBLIC_RPC_URL=http://localhost:8545
 NEXT_PUBLIC_CHAIN_ID=31337
 
 # Application Configuration
-NEXT_PUBLIC_APP_URL=http://localhost:6004
+NEXT_PUBLIC_APP_URL=http://localhost:6003
 NEXT_PUBLIC_PAYMENT_GATEWAY_URL=http://localhost:6002
 ```
 
@@ -52,7 +52,7 @@ NEXT_PUBLIC_PAYMENT_GATEWAY_URL=http://localhost:6002
 npm run dev
 ```
 
-La aplicación estará disponible en `http://localhost:6004`
+La aplicación estará disponible en `http://localhost:6003`
 
 ### Producción
 
@@ -112,7 +112,7 @@ Gateway usado: `https://cloudflare-ipfs.com/ipfs/{hash}`
 1. Asegúrate de que Anvil esté corriendo
 2. Deploy los contratos usando `restart-all.sh`
 3. Agrega productos desde web-admin
-4. Navega a `http://localhost:6004`
+4. Navega a `http://localhost:6003`
 5. Conecta wallet y prueba el flujo completo
 
 ## 🔒 Seguridad

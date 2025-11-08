@@ -704,7 +704,7 @@ EXCHANGE_RATE_API_URL=https://api.exchangerate-api.com/v4/latest/EUR
 # .env.local en web-customer/
 NEXT_PUBLIC_EXCHANGE_RATE_ORACLE_ADDRESS=0x...
 NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=0x...
-NEXT_PUBLIC_ORACLE_API_URL=http://localhost:3003  # Opcional
+NEXT_PUBLIC_ORACLE_API_URL=http://localhost:6005  # Opcional
 ```
 
 ### Frontend - Pasarela

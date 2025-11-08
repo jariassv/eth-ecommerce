@@ -27,6 +27,26 @@ print_info() {
     echo -e "${YELLOW}ℹ️  $1${NC}"
 }
 
+# Configuración de logs
+LOG_ROOT="$(pwd)/logs"
+RUN_ID=$(date +%Y%m%d-%H%M%S)
+mkdir -p "$LOG_ROOT"
+
+# Helper para obtener ruta de log por servicio
+log_file() {
+    local service="$1"
+    local dir="$LOG_ROOT/$service"
+    mkdir -p "$dir"
+    echo "$dir/${service}-${RUN_ID}.log"
+}
+
+# Puertos base
+COMPRA_PORT=6001
+PASA_PORT=6002
+CUSTOMER_PORT=6003
+ADMIN_PORT=6004
+ORACLE_API_PORT=6005
+
 # 1. Detener aplicaciones anteriores
 print_info "Deteniendo aplicaciones anteriores..."
 pkill -f "next dev" || true
@@ -36,8 +56,9 @@ sleep 2
 print_success "Aplicaciones anteriores detenidas"
 
 # 2. Iniciar Anvil
-print_info "Iniciando Anvil (blockchain local)..."
-anvil --accounts 10 --balance 10000 &
+ANVIL_LOG=$(log_file "anvil")
+print_info "Iniciando Anvil (blockchain local)... (log: $ANVIL_LOG)"
+anvil --accounts 10 --balance 10000 > "$ANVIL_LOG" 2>&1 &
 ANVIL_PID=$!
 sleep 3
 print_success "Anvil iniciado (PID: $ANVIL_PID)"
@@ -163,7 +184,7 @@ NEXT_PUBLIC_RPC_URL=http://localhost:8545
 NEXT_PUBLIC_CHAIN_ID=31337
 
 # Application Configuration
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://localhost:$COMPRA_PORT
 
 # Contract Owner Private Key
 OWNER_PRIVATE_KEY=
@@ -177,6 +198,7 @@ print_info "Actualizando direcciones de contratos en .env.local..."
 sed -i.bak "s|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=$USD_TOKEN_ADDRESS|g" "$COMPRA_ENV_FILE"
 sed -i.bak "s|NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=$EUR_TOKEN_ADDRESS|g" "$COMPRA_ENV_FILE"
 sed -i.bak "s|OWNER_PRIVATE_KEY=.*|OWNER_PRIVATE_KEY=$OWNER_PRIVATE_KEY|g" "$COMPRA_ENV_FILE"
+sed -i.bak "s|NEXT_PUBLIC_APP_URL=.*|NEXT_PUBLIC_APP_URL=http://localhost:$COMPRA_PORT|g" "$COMPRA_ENV_FILE"
 # Agregar variables si no existen
 if ! grep -q "NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS" "$COMPRA_ENV_FILE"; then
     echo "NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=$USD_TOKEN_ADDRESS" >> "$COMPRA_ENV_FILE"
@@ -211,7 +233,7 @@ NEXT_PUBLIC_RPC_URL=http://localhost:8545
 NEXT_PUBLIC_CHAIN_ID=31337
 
 # Application Configuration
-NEXT_PUBLIC_APP_URL=http://localhost:6002
+NEXT_PUBLIC_APP_URL=http://localhost:$PASA_PORT
 EOF
         print_info "Creado $PASARELA_ENV_FILE básico"
     fi
@@ -222,6 +244,7 @@ print_info "Actualizando direcciones de contratos en .env.local de pasarela..."
 sed -i.bak "s|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=$USD_TOKEN_ADDRESS|g" "$PASARELA_ENV_FILE"
 sed -i.bak "s|NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=$EUR_TOKEN_ADDRESS|g" "$PASARELA_ENV_FILE"
 sed -i.bak "s|NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=$ECOMMERCE_ADDRESS|g" "$PASARELA_ENV_FILE"
+sed -i.bak "s|NEXT_PUBLIC_APP_URL=.*|NEXT_PUBLIC_APP_URL=http://localhost:$PASA_PORT|g" "$PASARELA_ENV_FILE"
 # Agregar variables si no existen
 if ! grep -q "NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS" "$PASARELA_ENV_FILE"; then
     echo "NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=$EUR_TOKEN_ADDRESS" >> "$PASARELA_ENV_FILE"
@@ -244,8 +267,8 @@ NEXT_PUBLIC_RPC_URL=http://localhost:8545
 NEXT_PUBLIC_CHAIN_ID=31337
 
 # Application Configuration
-NEXT_PUBLIC_APP_URL=http://localhost:6004
-NEXT_PUBLIC_PAYMENT_GATEWAY_URL=http://localhost:6002
+NEXT_PUBLIC_APP_URL=http://localhost:$CUSTOMER_PORT
+NEXT_PUBLIC_PAYMENT_GATEWAY_URL=http://localhost:$PASA_PORT
 EOF
     print_info "Creado $CUSTOMER_ENV_FILE básico"
 fi
@@ -255,13 +278,15 @@ print_info "Actualizando direcciones de contratos en .env.local de web-customer.
 sed -i.bak "s|NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=$ECOMMERCE_ADDRESS|g" "$CUSTOMER_ENV_FILE"
 sed -i.bak "s|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=$USD_TOKEN_ADDRESS|g" "$CUSTOMER_ENV_FILE"
 sed -i.bak "s|NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=$EUR_TOKEN_ADDRESS|g" "$CUSTOMER_ENV_FILE"
-sed -i.bak "s|NEXT_PUBLIC_ORACLE_API_URL=.*|NEXT_PUBLIC_ORACLE_API_URL=http://localhost:3001|g" "$CUSTOMER_ENV_FILE"
+sed -i.bak "s|NEXT_PUBLIC_ORACLE_API_URL=.*|NEXT_PUBLIC_ORACLE_API_URL=http://localhost:$ORACLE_API_PORT|g" "$CUSTOMER_ENV_FILE"
+sed -i.bak "s|NEXT_PUBLIC_APP_URL=.*|NEXT_PUBLIC_APP_URL=http://localhost:$CUSTOMER_PORT|g" "$CUSTOMER_ENV_FILE"
+sed -i.bak "s|NEXT_PUBLIC_PAYMENT_GATEWAY_URL=.*|NEXT_PUBLIC_PAYMENT_GATEWAY_URL=http://localhost:$PASA_PORT|g" "$CUSTOMER_ENV_FILE"
 # Agregar variables si no existen
 if ! grep -q "NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS" "$CUSTOMER_ENV_FILE"; then
     echo "NEXT_PUBLIC_EURTOKEN_CONTRACT_ADDRESS=$EUR_TOKEN_ADDRESS" >> "$CUSTOMER_ENV_FILE"
 fi
 if ! grep -q "NEXT_PUBLIC_ORACLE_API_URL" "$CUSTOMER_ENV_FILE"; then
-    echo "NEXT_PUBLIC_ORACLE_API_URL=http://localhost:3001" >> "$CUSTOMER_ENV_FILE"
+    echo "NEXT_PUBLIC_ORACLE_API_URL=http://localhost:$ORACLE_API_PORT" >> "$CUSTOMER_ENV_FILE"
 fi
 rm -f "${CUSTOMER_ENV_FILE}.bak" 2>/dev/null || true
 
@@ -281,7 +306,7 @@ NEXT_PUBLIC_RPC_URL=http://localhost:8545
 NEXT_PUBLIC_CHAIN_ID=31337
 
 # Application Configuration
-NEXT_PUBLIC_APP_URL=http://localhost:6003
+NEXT_PUBLIC_APP_URL=http://localhost:$ADMIN_PORT
 
 # IPFS Configuration (Pinata)
 # NEXT_PUBLIC_PINATA_JWT=your_pinata_jwt_here
@@ -293,6 +318,7 @@ fi
 print_info "Actualizando direcciones de contratos en .env.local de web-admin..."
 sed -i.bak "s|NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_ECOMMERCE_CONTRACT_ADDRESS=$ECOMMERCE_ADDRESS|g" "$ADMIN_ENV_FILE"
 sed -i.bak "s|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=.*|NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=$USD_TOKEN_ADDRESS|g" "$ADMIN_ENV_FILE"
+sed -i.bak "s|NEXT_PUBLIC_APP_URL=.*|NEXT_PUBLIC_APP_URL=http://localhost:$ADMIN_PORT|g" "$ADMIN_ENV_FILE"
 rm -f "${ADMIN_ENV_FILE}.bak" 2>/dev/null || true
 
 print_success "Variables de entorno actualizadas en $ADMIN_ENV_FILE"
@@ -311,8 +337,8 @@ RPC_URL=http://localhost:8545
 # Dirección del contrato ExchangeRateOracle
 EXCHANGE_RATE_ORACLE_ADDRESS=
 
-# Puerto del servidor (default: 3001)
-PORT=3001
+# Puerto del servidor (default: 6005)
+PORT=$ORACLE_API_PORT
 
 # Entorno
 NODE_ENV=development
@@ -324,7 +350,7 @@ fi
 print_info "Actualizando direcciones en .env de Oracle API..."
 sed -i.bak "s|RPC_URL=.*|RPC_URL=http://localhost:8545|g" "$ORACLE_API_ENV_FILE"
 sed -i.bak "s|EXCHANGE_RATE_ORACLE_ADDRESS=.*|EXCHANGE_RATE_ORACLE_ADDRESS=$ORACLE_ADDRESS|g" "$ORACLE_API_ENV_FILE"
-sed -i.bak "s|PORT=.*|PORT=3001|g" "$ORACLE_API_ENV_FILE"
+sed -i.bak "s|PORT=.*|PORT=$ORACLE_API_PORT|g" "$ORACLE_API_ENV_FILE"
 # Agregar variables si no existen
 if ! grep -q "EXCHANGE_RATE_ORACLE_ADDRESS" "$ORACLE_API_ENV_FILE"; then
     echo "EXCHANGE_RATE_ORACLE_ADDRESS=$ORACLE_ADDRESS" >> "$ORACLE_API_ENV_FILE"
@@ -394,7 +420,9 @@ if [[ $REPLY =~ ^[Ss]$ ]]; then
         npm install
     fi
     
-    npm run dev &
+    COMPRA_LOG=$(log_file "compra-stablecoin")
+    print_info "  → Log: $COMPRA_LOG"
+    PORT=$COMPRA_PORT npm run dev -- --port $COMPRA_PORT > "$COMPRA_LOG" 2>&1 &
     COMPRA_PID=$!
     echo $COMPRA_PID > /tmp/next-compra-stablecoin.pid
     cd ../..
@@ -410,7 +438,9 @@ if [[ $REPLY =~ ^[Ss]$ ]]; then
         npm install
     fi
     
-    npm run dev &
+    PASARELA_LOG=$(log_file "pasarela")
+    print_info "  → Log: $PASARELA_LOG"
+    PORT=$PASA_PORT npm run dev -- --port $PASA_PORT > "$PASARELA_LOG" 2>&1 &
     PASARELA_PID=$!
     echo $PASARELA_PID > /tmp/next-pasarela.pid
     cd ../..
@@ -426,7 +456,9 @@ if [[ $REPLY =~ ^[Ss]$ ]]; then
         npm install
     fi
     
-    npm run dev &
+    CUSTOMER_LOG=$(log_file "web-customer")
+    print_info "  → Log: $CUSTOMER_LOG"
+    PORT=$CUSTOMER_PORT npm run dev -- --port $CUSTOMER_PORT > "$CUSTOMER_LOG" 2>&1 &
     CUSTOMER_PID=$!
     echo $CUSTOMER_PID > /tmp/next-customer.pid
     cd ..
@@ -442,7 +474,9 @@ if [[ $REPLY =~ ^[Ss]$ ]]; then
         npm install
     fi
     
-    npm run dev &
+    ADMIN_LOG=$(log_file "web-admin")
+    print_info "  → Log: $ADMIN_LOG"
+    PORT=$ADMIN_PORT npm run dev -- --port $ADMIN_PORT > "$ADMIN_LOG" 2>&1 &
     ADMIN_PID=$!
     echo $ADMIN_PID > /tmp/next-admin.pid
     cd ..
@@ -458,7 +492,9 @@ if [[ $REPLY =~ ^[Ss]$ ]]; then
         npm install
     fi
     
-    npm start &
+    ORACLE_API_LOG=$(log_file "oracle-api")
+    print_info "  → Log: $ORACLE_API_LOG"
+    PORT=$ORACLE_API_PORT npm start > "$ORACLE_API_LOG" 2>&1 &
     ORACLE_API_PID=$!
     echo $ORACLE_API_PID > /tmp/oracle-api.pid
     cd ../..
@@ -466,18 +502,21 @@ if [[ $REPLY =~ ^[Ss]$ ]]; then
     sleep 3
     
     print_success "Aplicaciones iniciadas:"
-    print_info "  - Compra Stablecoin: http://localhost:3000"
-    print_info "  - Pasarela de Pagos: http://localhost:6002"
-    print_info "  - Web Customer (Tienda): http://localhost:6004"
-    print_info "  - Web Admin (Panel): http://localhost:6003"
-    print_info "  - Oracle API: http://localhost:3001"
+    printf "%-24s %-32s %s\n" "Servicio" "URL" "Log"
+    printf "%-24s %-32s %s\n" "--------" "--------------------------------" "----------------------------------------------"
+    printf "%-24s %-32s %s\n" "Compra Stablecoin" "http://localhost:$COMPRA_PORT" "${COMPRA_LOG:-N/A}"
+    printf "%-24s %-32s %s\n" "Pasarela de Pagos" "http://localhost:$PASA_PORT" "${PASARELA_LOG:-N/A}"
+    printf "%-24s %-32s %s\n" "Web Customer" "http://localhost:$CUSTOMER_PORT" "${CUSTOMER_LOG:-N/A}"
+    printf "%-24s %-32s %s\n" "Web Admin" "http://localhost:$ADMIN_PORT" "${ADMIN_LOG:-N/A}"
+    printf "%-24s %-32s %s\n" "Oracle API" "http://localhost:$ORACLE_API_PORT" "${ORACLE_API_LOG:-N/A}"
+    print_info "Logs disponibles en $LOG_ROOT/<servicio>/*.log"
 else
     print_info "Para iniciar las aplicaciones manualmente:"
-    echo "  cd stablecoin/compra-stableboin && npm run dev"
-    echo "  cd stablecoin/pasarela-de-pago && npm run dev"
-    echo "  cd web-customer && npm run dev"
-    echo "  cd web-admin && npm run dev"
-    echo "  cd oracle/api && npm start"
+    echo "  cd stablecoin/compra-stableboin && PORT=$COMPRA_PORT npm run dev -- --port $COMPRA_PORT"
+    echo "  cd stablecoin/pasarela-de-pago && PORT=$PASA_PORT npm run dev -- --port $PASA_PORT"
+    echo "  cd web-customer && PORT=$CUSTOMER_PORT npm run dev -- --port $CUSTOMER_PORT"
+    echo "  cd web-admin && PORT=$ADMIN_PORT npm run dev -- --port $ADMIN_PORT"
+    echo "  cd oracle/api && PORT=$ORACLE_API_PORT npm start"
 fi
 
 print_success "Deploy completo finalizado!"

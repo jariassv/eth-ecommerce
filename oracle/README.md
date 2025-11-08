@@ -106,7 +106,7 @@ cp .env.example .env
 npm start
 ```
 
-La API estará disponible en `http://localhost:3001`.
+La API estará disponible en `http://localhost:6005`.
 
 Ver [oracle/api/README.md](./api/README.md) para más detalles.
 
@@ -180,7 +180,7 @@ npm run update-rate-manual 1.10
 
 **Desde Frontend (via API)**
 ```typescript
-const response = await fetch('http://localhost:3001/api/rate');
+const response = await fetch('http://localhost:6005/api/rate');
 const { rate, rateDecimal } = await response.json();
 ```
 
@@ -227,7 +227,7 @@ El contrato `Ecommerce` usa el oráculo para:
 
 - `RPC_URL`: URL del RPC de la blockchain (default: http://localhost:8545)
 - `EXCHANGE_RATE_ORACLE_ADDRESS`: Dirección del contrato Oracle (requerido)
-- `PORT`: Puerto del servidor (default: 3001)
+- `PORT`: Puerto del servidor (default: 6005)
 - `NODE_ENV`: Entorno de ejecución (development/production)
 
 ### Scripts
@@ -250,13 +250,13 @@ forge test -vvv
 
 ```bash
 # Health check
-curl http://localhost:3001/health
+curl http://localhost:6005/health
 
 # Obtener rate
-curl http://localhost:3001/api/rate
+curl http://localhost:6005/api/rate
 
 # Convertir monto
-curl -X POST http://localhost:3001/api/convert \
+curl -X POST http://localhost:6005/api/convert \
   -H "Content-Type: application/json" \
   -d '{"from":"USDT","to":"EURT","amount":"100000000"}'
 ```

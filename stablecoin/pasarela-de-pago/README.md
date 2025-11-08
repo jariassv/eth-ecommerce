@@ -106,7 +106,7 @@ http://localhost:6002/?
 ### Ejemplo de URL de Prueba
 
 ```
-http://localhost:6002/?merchant_address=0x1234567890123456789012345678901234567890&amount=100.50&invoice=1&redirect=http://localhost:6004
+http://localhost:6002/?merchant_address=0x1234567890123456789012345678901234567890&amount=100.50&invoice=1&redirect=http://localhost:6003
 ```
 
 ## 🔒 Seguridad

@@ -414,7 +414,7 @@ export default function PaymentProcessor({
               Necesitas {amount.toFixed(2)} {tokenType} pero tienes {balance} {tokenType}.
             </p>
             <a
-              href="http://localhost:3000"
+              href="http://localhost:6001"
               target="_blank"
               className="text-sm underline mt-2 inline-block"
             >

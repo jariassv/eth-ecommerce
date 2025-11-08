@@ -31,7 +31,7 @@ cp .env.example .env
 ```env
 RPC_URL=http://localhost:8545
 EXCHANGE_RATE_ORACLE_ADDRESS=0x...
-PORT=3001
+PORT=6005
 NODE_ENV=development
 ```
 
@@ -47,7 +47,7 @@ npm run dev
 npm start
 ```
 
-La API estará disponible en `http://localhost:3001` (o el puerto configurado).
+La API estará disponible en `http://localhost:6005` (o el puerto configurado).
 
 ## Endpoints
 
@@ -121,7 +121,7 @@ Convertir un monto entre USDT y EURT.
 
 - `RPC_URL`: URL del RPC de la blockchain (default: http://localhost:8545)
 - `EXCHANGE_RATE_ORACLE_ADDRESS`: Dirección del contrato ExchangeRateOracle (requerido)
-- `PORT`: Puerto del servidor (default: 3001)
+- `PORT`: Puerto del servidor (default: 6005)
 - `NODE_ENV`: Entorno de ejecución (development/production)
 
 ## Notas

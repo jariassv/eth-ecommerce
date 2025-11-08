@@ -154,12 +154,11 @@ export default function BuyTokensModal({
 
     const handleMessage = (event: MessageEvent) => {
       // Verificar origen por seguridad (ajustar según tu dominio)
-      // Aceptar mensajes del mismo origen o de localhost:3000
+      // Aceptar mensajes del mismo origen o de los puertos locales configurados
       const allowedOrigins = [
         window.location.origin,
-        'http://localhost:3000',
-        'http://127.0.0.1:3000',
         'http://localhost:6001',
+        'http://127.0.0.1:6001',
         BUY_TOKENS_URL
       ];
 

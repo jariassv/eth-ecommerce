@@ -30,7 +30,7 @@ npm start
 
 #### Health Check
 ```bash
-curl http://localhost:3001/health
+curl http://localhost:6005/health
 ```
 
 **Esperado:**
@@ -43,7 +43,7 @@ curl http://localhost:3001/health
 
 #### Obtener Rate
 ```bash
-curl http://localhost:3001/api/rate
+curl http://localhost:6005/api/rate
 ```
 
 **Esperado:**
@@ -58,7 +58,7 @@ curl http://localhost:3001/api/rate
 
 #### Información Completa del Rate
 ```bash
-curl http://localhost:3001/api/rate/info
+curl http://localhost:6005/api/rate/info
 ```
 
 **Esperado:**
@@ -77,7 +77,7 @@ curl http://localhost:3001/api/rate/info
 
 #### Convertir Monto
 ```bash
-curl -X POST http://localhost:3001/api/convert \
+curl -X POST http://localhost:6005/api/convert \
   -H "Content-Type: application/json" \
   -d '{
     "from": "USDT",
@@ -148,7 +148,7 @@ npm run update-rate
 
 #### Test 1: Selección de Moneda en Header
 
-1. **Abrir Web Customer** (http://localhost:6004)
+1. **Abrir Web Customer** (http://localhost:6003)
 2. **Conectar MetaMask**
 3. **Verificar balance en header** (debe mostrar USDT por defecto)
 4. **Hacer clic en selector de moneda**

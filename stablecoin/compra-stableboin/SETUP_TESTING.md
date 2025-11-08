@@ -154,8 +154,8 @@ En una **nueva terminal**:
 # Autenticar Stripe CLI
 stripe login
 
-# Escuchar webhooks localmente (esto forwardea eventos a tu localhost:3000)
-stripe listen --forward-to localhost:3000/api/webhook
+# Escuchar webhooks localmente (esto forwardea eventos a tu localhost:6001)
+stripe listen --forward-to localhost:6001/api/webhook
 ```
 
 Esto mostrará un **webhook signing secret** (empieza con `whsec_`). **Guárdalo.**
@@ -201,7 +201,7 @@ NEXT_PUBLIC_RPC_URL=http://localhost:8545
 NEXT_PUBLIC_CHAIN_ID=31337
 
 # Application Configuration
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://localhost:6001
 
 # Contract Owner Private Key
 OWNER_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
@@ -244,7 +244,7 @@ npm install
 npm run dev
 ```
 
-La aplicación estará en `http://localhost:3000`
+La aplicación estará en `http://localhost:6001`
 
 ---
 
@@ -252,7 +252,7 @@ La aplicación estará en `http://localhost:3000`
 
 ### 10.1 Preparación
 
-1. **Abre la aplicación:** http://localhost:3000
+1. **Abre la aplicación:** http://localhost:6001
 2. **Conecta MetaMask:**
    - Asegúrate de estar en la red "Localhost 8545"
    - Haz clic en "Conectar MetaMask"

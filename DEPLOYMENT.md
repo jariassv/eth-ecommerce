@@ -186,11 +186,11 @@ Después del deployment, accede a:
 | Aplicación | URL | Descripción |
 |------------|-----|-------------|
 | Anvil | http://localhost:8545 | Blockchain local |
-| Oracle API | http://localhost:3001 | API REST para consultar rate de conversión |
+| Oracle API | http://localhost:6005 | API REST para consultar rate de conversión |
 | Compra Stablecoin | http://localhost:6001 | Compra tokens con Stripe |
 | Pasarela de Pago | http://localhost:6002 | Pagos con tokens |
-| Web Admin | http://localhost:6003 | Panel de administración |
-| Web Customer | http://localhost:6004 | Tienda online |
+| Web Customer | http://localhost:6003 | Tienda online |
+| Web Admin | http://localhost:6004 | Panel de administración |
 
 ## ✅ Verificación del Deployment
 
@@ -236,7 +236,7 @@ Abre MetaMask y verifica que:
    - Agrega productos con imágenes (IPFS)
    - Verifica que los productos se guardan correctamente
 
-4. **Comprar Productos** (http://localhost:6004)
+4. **Comprar Productos** (http://localhost:6003)
    - Navega a la tienda
    - Agrega productos al carrito
    - Completa el checkout

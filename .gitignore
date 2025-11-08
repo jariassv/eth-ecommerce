@@ -44,6 +44,7 @@ broadcast/
 *.log
 *.tmp
 .cache/
+logs/
 
 # OS
 Thumbs.db

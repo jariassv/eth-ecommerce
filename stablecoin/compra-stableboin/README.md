@@ -42,7 +42,7 @@ NEXT_PUBLIC_RPC_URL=http://localhost:8545
 NEXT_PUBLIC_CHAIN_ID=31337
 
 # Application Configuration
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://localhost:6001
 
 # Contract Owner Private Key (para mint via webhook)
 OWNER_PRIVATE_KEY=0x...
@@ -53,7 +53,7 @@ OWNER_PRIVATE_KEY=0x...
 1. Crea una cuenta en [Stripe Dashboard](https://dashboard.stripe.com)
 2. Obtén tus API keys de prueba (publishable y secret)
 3. Configura un webhook:
-   - URL: `http://localhost:3000/api/webhook` (usar ngrok para desarrollo local)
+   - URL: `http://localhost:6001/api/webhook` (usar ngrok para desarrollo local)
    - Eventos: `payment_intent.succeeded`
    - Copia el webhook secret
 
@@ -69,7 +69,7 @@ Asegúrate de tener el contrato USDToken desplegado y su dirección configurada.
 npm run dev
 ```
 
-La aplicación estará disponible en `http://localhost:3000`
+La aplicación estará disponible en `http://localhost:6001`
 
 ### Producción
 
@@ -103,7 +103,7 @@ CVC: Cualquier 3 dígitos
 Para probar el webhook localmente, usa [ngrok](https://ngrok.com/):
 
 ```bash
-ngrok http 3000
+ngrok http 6001
 ```
 
 Luego configura la URL de ngrok en Stripe Dashboard.

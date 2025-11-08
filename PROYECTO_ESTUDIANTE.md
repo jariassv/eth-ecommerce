@@ -1227,7 +1227,7 @@ NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=0x...
 - Compra Stablecoin: `http://localhost:6001`
 - Pasarela de Pago: `http://localhost:6002`
 - Web Admin: `http://localhost:6003`
-- Web Customer: `http://localhost:6004`
+- Web Customer: `http://localhost:6003`
 
 ---
 
@@ -1259,7 +1259,7 @@ NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=0x...
      - Producto B: $25, Stock: 50
 
 4. **Comprar Productos (Customer)**
-   - Ir a `http://localhost:6004`
+   - Ir a `http://localhost:6003`
    - Ver catálogo de productos
    - Conectar wallet de cliente
    - Agregar Producto A (qty: 2) al carrito
@@ -1278,7 +1278,7 @@ NEXT_PUBLIC_USDTOKEN_CONTRACT_ADDRESS=0x...
    - Ver confirmación de pago exitoso
 
 6. **Verificar Invoice**
-   - Redirige a `http://localhost:6004/orders`
+   - Redirige a `http://localhost:6003/orders`
    - Ver invoice marcada como "Paid"
    - Ver detalles de la compra
 
