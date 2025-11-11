@@ -1,229 +1,209 @@
-# E-Commerce con Blockchain y Stablecoins
+# E-Commerce Web3 Platform
 
-Sistema completo de e-commerce descentralizado integrando blockchain, stablecoins, pagos tradicionales y aplicaciones web modernas.
+Plataforma integral de comercio electrónico construida sobre blockchain que combina pagos con stablecoins, on-ramps tradicionales y experiencias de usuario modernas. El sistema habilita a empresas para publicar catálogos con activos multimedia en IPFS, gestionar facturación on-chain con conversión multimoneda y ofrecer a los clientes un checkout Web3 que se integra con Stripe para la compra de tokens.
 
-## 🚀 Características Principales
+---
 
-- **Tokens Multi-moneda**: USDToken y EURToken (ERC20)
-- **Compra de Tokens**: Integración con Stripe para compra de stablecoins
-- **Pasarela de Pagos**: Pagos con tokens entre clientes y comerciantes
-- **Smart Contracts**: E-commerce completo en blockchain con reviews y analytics
-- **Web Admin**: Panel de administración con dashboard de analytics
-- **Web Customer**: Tienda online moderna con reviews
-- **IPFS**: Almacenamiento descentralizado de imágenes
+## 1. Visión General
 
-## 📁 Arquitectura
+- **Modelos de rol**
+  - *Owner del protocolo*: despliega los contratos, habilita empresas y gestiona tokens soportados.
+  - *Empresa vendedora*: administra productos e inventario, consulta métricas y atiende reseñas.
+  - *Cliente*: navega el catálogo, selecciona moneda (USDT/EURT), paga on-chain y publica reseñas verificadas.
+- **Flujos clave**
+  1. Conversión fiat → stablecoin mediante Stripe y distribución controlada.
+  2. Gestión de catálogo con activos multimedia almacenados en IPFS.
+  3. Creación de facturas multimoneda con validación dual en smart contracts.
+  4. Pasarela de pago que verifica token, allowance y montos exactos antes de liquidar.
+  5. Dashboard administrativo con analytics de ventas, pedidos y feedback.
+
+---
+
+## 2. Arquitectura
 
 ```
-30_eth_database_ecommerce/
-├── stablecoin/
-│   ├── sc/                          # Smart Contracts de tokens
-│   ├── compra-stableboin/           # App para comprar tokens con Stripe
-│   └── pasarela-de-pago/            # Pasarela de pagos con tokens
-├── sc-ecommerce/                    # Smart Contract E-commerce
-├── web-admin/                       # Panel de administración
-├── web-customer/                    # Tienda online para clientes
-└── restart-all.sh                   # Script de deploy completo
+                              ┌───────────────────────────────┐
+                              │          Web Admin (Next)     │
+                              │  - Gestión de empresas         │
+                              │  - Catálogo & analytics        │
+                              └──────────────┬────────────────┘
+                                             │
+┌────────────────────┐        ┌──────────────▼────────────────┐        ┌────────────────────┐
+│ Stripe + Webhooks  │◀──────▶│ Stablecoin On-Ramp (Next)     │◀──────▶│  Wallet del cliente │
+│ (USD/EUR tarjeta)  │        │ - Compra USDT/EURT             │        │  (MetaMask u otra)  │
+└────────────────────┘        │ - Gestión de webhooks Stripe   │        └────────────────────┘
+                              └──────────────┬────────────────┘
+                                             │ RPC / JSON APIs
+                              ┌──────────────▼────────────────┐
+                              │ Pasarela de Pago (Next)       │
+                              │ - Lee invoice on-chain         │
+                              │ - Verifica token seleccionado  │
+                              └──────────────┬────────────────┘
+                                             │
+                              ┌──────────────▼─────────────────┐
+                              │ Web Customer (Next)            │
+                              │ - Catálogo multimoneda         │
+                              │ - Conversión con oráculo       │
+                              └──────────────┬─────────────────┘
+                                             │
+                          ┌──────────────────▼──────────────────┐
+                          │  Smart Contracts (Foundry)          │
+                          │  - ExchangeRateOracle               │
+                          │  - Ecommerce (cart, invoices,       │
+                          │    pagos, reviews)                  │
+                          │  - USDToken / EURToken              │
+                          └──────────────────┬──────────────────┘
+                                             │
+                          ┌──────────────────▼──────────────────┐
+                          │  Off-chain Services                  │
+                          │  - API REST del oráculo (Node.js)   │
+                          │  - Scripts de actualización de rate │
+                          └─────────────────────────────────────┘
 ```
 
-## 🛠️ Tecnologías
+---
 
-### Blockchain
-- Solidity
-- Foundry/Forge
-- Anvil (blockchain local)
-- Ethers.js v6
+## 3. Componentes y Responsabilidades
 
-### Frontend
-- Next.js 15
-- TypeScript
-- Tailwind CSS
-- MetaMask
+| Componente | Descripción |
+|------------|-------------|
+| `sc-ecommerce` | Contrato principal con librerías propias para carrito, facturas, pagos multimoneda, conversión on-chain y reseñas verificadas. |
+| `stablecoin/sc` | Implementación de USDToken y EURToken (ERC20) usados como medios de pago. |
+| `oracle/sc` | `ExchangeRateOracle` con control de rangos, vigencia de 24 horas y conversión bidireccional. |
+| `oracle/api` | API Express que expone el rate para consultas off-chain y frontends. |
+| `oracle/scripts` | Scripts Node.js/TypeScript para sincronizar el rate con proveedores externos y tareas manuales. |
+| `stablecoin/compra-stableboin` | Aplicación Next.js que integra Stripe para on-ramp y distribución de tokens. |
+| `stablecoin/pasarela-de-pago` | Checkout Web3 que ejecuta `processPayment` garantizando token/monto correctos. |
+| `web-customer` | Tienda para clientes con conversión en tiempo real, selector de moneda y reseñas verificadas. |
+| `web-admin` | Panel empresarial con métricas, gestión de catálogo (incluyendo carga a IPFS) y flujos operativos. |
+| `restart-all.sh` | Script orquestador que limpia procesos, inicia Anvil, despliega contratos y arranca todas las apps. |
 
-### Pagos
-- Stripe
-- ERC20 Tokens
-- Multi-moneda support
+---
 
-### Almacenamiento
-- IPFS (Pinata/Infura)
+## 4. Tecnologías Principales
 
-### Analytics
-- Recharts/Chart.js
+| Capa | Tecnologías |
+|------|-------------|
+| Blockchain | Solidity · Foundry/Forge · Anvil · OpenZeppelin Contracts · Ethers.js v6 |
+| Web & UX | Next.js 15 · React 18 · TypeScript · Tailwind CSS · Zustand · Radix UI |
+| Pagos | Stripe (Checkout, Webhooks, CLI) · ERC20 · MetaMask/WalletConnect |
+| Datos y almacenamiento | IPFS (Pinata) para imágenes de productos · JSON-RPC · LocalStorage |
+| Operaciones | Node.js · npm · bash scripts · Stripe CLI · Git/GitHub |
 
-## 📋 Requisitos Previos
+---
 
-- Node.js v18.x o superior
-- npm o yarn
-- Foundry (ver instalación abajo)
-- Git
-- MetaMask (extensión del navegador)
-- Cuenta de Stripe (para pruebas)
+## 5. Inicio Rápido
 
-## 🔧 Instalación Rápida
+### 5.1 Prerrequisitos
 
-### 1. Instalar Foundry
+- Node.js ≥ 18.18 y npm ≥ 9
+- Foundry (`curl -L https://foundry.paradigm.xyz | bash && foundryup`)
+- Stripe CLI (`./install-stripe-cli.sh` en Linux/macOS)
+- MetaMask u otro wallet compatible con EIP-1193
+- Cuenta de Stripe (modo test) para habilitar claves y webhooks
+
+### 5.2 Clonado e instalación
 
 ```bash
-curl -L https://foundry.paradigm.xyz | bash
-foundryup
+git clone git@github.com:<org>/eth-ecommerce.git
+cd 05-EthereumPractice/03-ECOMMERCE
 
-# Verificar instalación
-forge --version
-anvil --version
-cast --version
+# Dependencias front y servicios
+npm install --prefix web-customer
+npm install --prefix web-admin
+npm install --prefix stablecoin/compra-stableboin
+npm install --prefix stablecoin/pasarela-de-pago
+npm install --prefix oracle/api
+npm install --prefix oracle/scripts
+
+# Dependencias de smart contracts
+git submodule update --init --recursive || true
+forge install --root sc-ecommerce
+forge install --root stablecoin/sc
+forge install --root oracle/sc
 ```
 
-### 2. Clonar y Deploy
+### 5.3 Variables de entorno
+
+Cada paquete incluye plantillas `.env.example` o `.env.local.example` con los valores requeridos:
+
+- `stablecoin/compra-stableboin/.env.local` → claves Stripe test, RPC y direcciones de contratos.
+- `stablecoin/pasarela-de-pago/.env.local` → RPC, dirección del contrato Ecommerce y oráculo.
+- `web-customer/.env.local` y `web-admin/.env.local` → RPC, tokens soportados, credenciales IPFS.
+- `oracle/api/.env` y `oracle/scripts/.env` → RPC, dirección del oráculo, claves de proveedores de FX.
+
+Copie cada plantilla, actualice las variables y mantenga claves sensibles fuera del control de versiones.
+
+### 5.4 Arranque automatizado
 
 ```bash
-git clone <repo-url>
-cd 03-ECOMMERCE
-
-# Dar permisos al script
 chmod +x restart-all.sh
-
-# Deploy completo (automatizado)
 ./restart-all.sh
 ```
 
-El script `restart-all.sh` automatiza todo:
-1. ✅ Detiene aplicaciones anteriores
-2. ✅ Inicia Anvil (blockchain local en puerto 8545)
-3. ✅ Deploy USDToken y EURToken
-4. ✅ Deploy contrato Ecommerce
-5. ✅ Configura variables de entorno automáticamente
-6. ✅ Instala dependencias de todas las apps
-7. ✅ Inicia todas las aplicaciones Next.js
+El script detiene procesos previos, inicia Anvil, despliega tokens + oráculo + Ecommerce, actualiza `.env` en cada app y ejecuta los servidores Next.js en los puertos:
 
-### 3. Configurar MetaMask
-
-1. Instalar MetaMask desde [metamask.io](https://metamask.io)
-2. Configurar red local:
-   - **Network Name**: Localhost 8545
-   - **RPC URL**: http://localhost:8545
-   - **Chain ID**: 31337
-   - **Currency Symbol**: ETH
-3. Importar cuenta de Anvil (usar private key del script)
-
-### 4. Configuración Opcional
-
-#### Stripe (para compra de tokens)
-
-Edita `stablecoin/compra-stableboin/.env.local`:
-```bash
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-```
-
-#### IPFS/Pinata (para imágenes de productos)
-
-Edita `web-admin/.env.local`:
-```bash
-NEXT_PUBLIC_PINATA_JWT=tu_jwt_token_aqui
-```
-
-Obtén tu JWT en [pinata.cloud](https://pinata.cloud)
-
-📖 **Para más detalles, consulta [DEPLOYMENT.md](./DEPLOYMENT.md)**
-
-## 🎯 Puertos
-
-- Anvil: `http://localhost:8545`
-- Compra Stablecoin: `http://localhost:6001`
+- Web Admin: `http://localhost:6003/admin`
+- Web Customer: `http://localhost:6004`
+- On-Ramp (Stripe): `http://localhost:6001`
 - Pasarela de Pago: `http://localhost:6002`
-- Web Admin: `http://localhost:6003`
-- Web Customer: `http://localhost:6003`
+- Anvil RPC: `http://localhost:8545`
 
-## 🧪 Testing
+### 5.5 Arranque manual (resumen)
 
-### Smart Contracts
+1. `anvil --chain-id 31337`
+2. Desplegar oráculo: `forge script script/DeployExchangeRateOracle.s.sol --rpc-url <url> --broadcast` (en `oracle/sc`).
+3. Desplegar Ecommerce: `forge script script/DeployEcommerce.s.sol --rpc-url <url> --broadcast` (en `sc-ecommerce`).
+4. Actualizar las direcciones resultantes en los archivos `.env.local` relevantes.
+5. Ejecutar `npm run dev` en cada frontend (`web-admin`, `web-customer`, `stablecoin/compra-stableboin`, `stablecoin/pasarela-de-pago`).
+6. Lanzar Stripe CLI para webhooks: `stripe listen --forward-to localhost:6001/api/webhook`.
 
-```bash
-cd stablecoin/sc
-forge test
-forge test -vvv  # Con logs detallados
+---
 
-cd ../../sc-ecommerce
-forge test
-```
+## 6. Testing y Calidad
 
-### Aplicaciones Web
+| Área | Comando |
+|------|---------|
+| Smart contracts Ecommerce | `cd sc-ecommerce && forge test -vvv` |
+| Smart contracts Oracle | `cd oracle/sc && forge test` |
+| Stablecoin suite | `cd stablecoin/sc && forge test` |
+| Frontends Next.js | `npm run lint && npm run test` en cada paquete |
+| Scripts/API Oráculo | `npm run test` (cuando esté habilitada la suite) |
 
-```bash
-cd web-customer
-npm test
+Los tests de contratos cubren tolerancias de redondeo, integridad del carrito, compatibilidad retroactiva y flujos multimoneda con congelamiento de rate.
 
-cd ../web-admin
-npm test
-```
+---
 
-## 📚 Documentación
+## 7. Seguridad y Buenas Prácticas
 
-- **[DEPLOYMENT.md](./DEPLOYMENT.md)**: Guía completa de deployment y configuración
-- **[VARIABLES_ENTORNO.md](./VARIABLES_ENTORNO.md)**: Guía de variables de entorno
-- **[TESTING_CHECKLIST.md](./TESTING_CHECKLIST.md)**: Checklist completo de testing E2E
-- **[PROYECTO_ESTUDIANTE.md](./PROYECTO_ESTUDIANTE.md)**: Documentación técnica del proyecto
-  - Plan de trabajo por etapas
-  - Guías de diseño UI/UX
-  - Arquitectura de contratos
-  - Solución de problemas
-  - Buenas prácticas
+- Validación dual de totales: el contrato recalcula montos desde el carrito y exige coincidencia (±0.1% o 100 unidades base).
+- Conversión on-chain: si el cliente paga en EURT, el contrato convierte usando el oráculo y fija la tasa al crear la invoice.
+- Oráculo controlado: solo el owner puede actualizar el rate, que debe permanecer entre 0.8 y 1.5 y con vigencia < 24 h.
+- IPFS para medios: se evita almacenar archivos on-chain, pero se conserva un enlace verificable en el catálogo.
+- Pasarela de pago: exige que el token usado coincida con la invoice y que exista allowance suficiente antes de transferir.
+- Webhooks Stripe firmados: los eventos se validan contra el secreto y se registran en logs para auditoría.
 
-### Documentación por Componente
+---
 
-- [Web Admin README](./web-admin/README.md): Panel de administración
-- [Web Customer README](./web-customer/README.md): Tienda online
-- [Pasarela de Pago README](./stablecoin/pasarela-de-pago/README.md): Sistema de pagos
-- [Compra Stablecoin README](./stablecoin/compra-stableboin/README.md): Compra de tokens
+## 8. Resolución de Problemas
 
-## 🔒 Seguridad
+- **Rate desactualizado**: `cd oracle/scripts && npm run update-rate` o `npm run update-rate-manual 1.10`.
+- **Fotos que no cargan**: revisar que el JWT de Pinata esté vigente y que el hash IPFS se haya guardado en el producto.
+- **Pagos rechazados**: confirmar balance + allowance del token seleccionado y que la invoice se generó con ese token.
+- **Webhooks Stripe**: iniciar `stripe listen` y validar `STRIPE_WEBHOOK_SECRET`.
 
-- Contratos auditados con Foundry tests
-- Coverage mínimo 80%
-- Validaciones exhaustivas
-- OpenZeppelin para contratos base
+---
 
-## 🎯 Flujo de Trabajo Completo
+## 9. Próximos Pasos
 
-1. **Compra de Tokens** → http://localhost:6001
-   - Compra USDT/EURT con tarjeta de crédito vía Stripe
+- Integrar feeds descentralizados (Chainlink) para el oráculo.
+- Automatizar actualización de rate con cron en infraestructura dedicada.
+- Incorporar notificaciones push (webhooks internos o servicios externos) para órdenes completadas.
+- Extender soporte de monedas a nuevas stablecoins y convertir dinámicamente.
 
-2. **Registro de Empresa** → http://localhost:6003
-   - El owner del contrato registra empresas
-   - Cada empresa puede gestionar sus productos
+---
 
-3. **Crear Productos** → http://localhost:6003
-   - Agregar productos con imágenes (IPFS)
-   - Gestionar stock y precios
+## 10. Licencia y Créditos
 
-4. **Comprar Productos** → http://localhost:6003
-   - Navegar catálogo
-   - Agregar al carrito
-   - Crear factura
-
-5. **Procesar Pago** → http://localhost:6002
-   - Aprobar tokens
-   - Completar pago
-   - Verificar transacción
-
-6. **Analytics y Reviews** → http://localhost:6003
-   - Ver métricas de ventas
-   - Gestionar reviews de productos
-
-## 📝 Licencia
-
-Este proyecto es parte de un curso educativo sobre desarrollo blockchain.
-
-## 👥 Autor
-
-Desarrollado como proyecto educativo de e-commerce blockchain.
-
-## 📧 Soporte
-
-Para problemas o preguntas, revisa:
-- [DEPLOYMENT.md](./DEPLOYMENT.md) para problemas de deployment
-- [PROYECTO_ESTUDIANTE.md](./PROYECTO_ESTUDIANTE.md) para documentación técnica
-- Issues en el repositorio para reportar bugs
+Proyecto educativo orientado a prácticas de comercio electrónico Web3. Se distribuye bajo licencia MIT salvo indicación en submódulos específicos. Agradecimientos a la comunidad de OpenZeppelin, Foundry y Stripe por las herramientas que sustentan esta solución.
 
