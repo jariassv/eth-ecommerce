@@ -2,6 +2,10 @@
 
 Plataforma integral de comercio electrónico construida sobre blockchain que combina pagos con stablecoins, on-ramps tradicionales y experiencias de usuario modernas. El sistema habilita a empresas para publicar catálogos con activos multimedia en IPFS, gestionar facturación on-chain con conversión multimoneda y ofrecer a los clientes un checkout Web3 que se integra con Stripe para la compra de tokens.
 
+## Demo
+
+Puedes ver una demostración completa de la plataforma en el archivo [`Demo Ecommerce.mp4`](./Demo%20Ecommerce.mp4).
+
 ---
 
 ## 1. Visión General
