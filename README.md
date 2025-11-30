@@ -69,9 +69,9 @@ Plataforma integral de comercio electrónico construida sobre blockchain que com
 |------------|-------------|
 | `sc-ecommerce` | Contrato principal con librerías propias para carrito, facturas, pagos multimoneda, conversión on-chain y reseñas verificadas. |
 | `stablecoin/sc` | Implementación de USDToken y EURToken (ERC20) usados como medios de pago. |
-| `oracle/sc` | `ExchangeRateOracle` con control de rangos, vigencia de 24 horas y conversión bidireccional. |
-| `oracle/api` | API Express que expone el rate para consultas off-chain y frontends. |
-| `oracle/scripts` | Scripts Node.js/TypeScript para sincronizar el rate con proveedores externos y tareas manuales. |
+| `oracle/sc` | `ExchangeRateOracle` con control de rangos (0.8-1.5), vigencia de 24 horas y conversión bidireccional EURT ↔ USDT. |
+| `oracle/api` | API REST Express (puerto 6005) que expone el rate para consultas off-chain y frontends. Endpoints: `/api/rate`, `/api/rate/info`, `/api/convert`. |
+| `oracle/scripts` | Scripts Node.js/TypeScript para sincronizar el rate con proveedores externos (`update-rate`) y actualización manual (`update-rate-manual`). |
 | `stablecoin/compra-stableboin` | Aplicación Next.js que integra Stripe para on-ramp y distribución de tokens. |
 | `stablecoin/pasarela-de-pago` | Checkout Web3 que ejecuta `processPayment` garantizando token/monto correctos. |
 | `web-customer` | Tienda para clientes con conversión en tiempo real, selector de moneda y reseñas verificadas. |
@@ -147,6 +147,7 @@ El script detiene procesos previos, inicia Anvil, despliega tokens + oráculo + 
 - Web Customer: `http://localhost:6004`
 - On-Ramp (Stripe): `http://localhost:6001`
 - Pasarela de Pago: `http://localhost:6002`
+- Oracle API: `http://localhost:6005`
 - Anvil RPC: `http://localhost:8545`
 
 ### 5.5 Arranque manual (resumen)
@@ -155,12 +156,44 @@ El script detiene procesos previos, inicia Anvil, despliega tokens + oráculo + 
 2. Desplegar oráculo: `forge script script/DeployExchangeRateOracle.s.sol --rpc-url <url> --broadcast` (en `oracle/sc`).
 3. Desplegar Ecommerce: `forge script script/DeployEcommerce.s.sol --rpc-url <url> --broadcast` (en `sc-ecommerce`).
 4. Actualizar las direcciones resultantes en los archivos `.env.local` relevantes.
-5. Ejecutar `npm run dev` en cada frontend (`web-admin`, `web-customer`, `stablecoin/compra-stableboin`, `stablecoin/pasarela-de-pago`).
-6. Lanzar Stripe CLI para webhooks: `stripe listen --forward-to localhost:6001/api/webhook`.
+5. Iniciar Oracle API: `cd oracle/api && npm start` (puerto 6005).
+6. Ejecutar `npm run dev` en cada frontend (`web-admin`, `web-customer`, `stablecoin/compra-stableboin`, `stablecoin/pasarela-de-pago`).
+7. Lanzar Stripe CLI para webhooks: `stripe listen --forward-to localhost:6001/api/webhook`.
+
+**Nota**: Para más detalles sobre el oráculo (funcionalidades, actualización de rates, endpoints API), consulta [`oracle/README.md`](./oracle/README.md).
 
 ---
 
-## 6. Testing y Calidad
+## 6. Oracle de Tasa de Cambio
+
+El sistema incluye un oráculo completo para gestionar la conversión entre EURT y USDT, permitiendo pagos multimoneda en el e-commerce.
+
+### 6.1 Componentes del Oracle
+
+- **Smart Contract** (`oracle/sc`): `ExchangeRateOracle` que almacena el rate on-chain con validaciones de rango (0.8-1.5) y vigencia temporal (< 24 horas).
+- **API REST** (`oracle/api`): Servicio Node.js en puerto 6005 que expone endpoints para consultar el rate y convertir montos.
+- **Scripts de Actualización** (`oracle/scripts`): Herramientas para actualizar el rate automáticamente desde APIs externas o manualmente.
+
+### 6.2 Funcionalidades
+
+- **Conversión bidireccional**: EURT → USDT y USDT → EURT usando el rate almacenado.
+- **Validación on-chain**: El contrato `Ecommerce` valida que el rate esté actualizado y en rango antes de crear invoices.
+- **Consulta off-chain**: Los frontends consultan el rate vía API REST para mostrar conversiones en tiempo real.
+- **Actualización controlada**: Solo el owner puede actualizar el rate, previniendo manipulaciones.
+
+### 6.3 Integración en el E-commerce
+
+1. **Creación de Invoice**: Cuando un cliente selecciona EURT como moneda, el contrato `Ecommerce` consulta el oráculo para convertir el total a USDT y fija el rate en la invoice.
+2. **Visualización en Frontend**: `web-customer` consulta la API del oráculo para mostrar precios convertidos en tiempo real según la moneda seleccionada.
+3. **Validación de Pago**: La pasarela de pago verifica que el token usado coincida con el de la invoice y que el rate sea válido.
+
+### 6.4 Documentación Adicional
+
+Para información detallada sobre configuración, endpoints API, scripts de actualización y troubleshooting, consulta [`oracle/README.md`](./oracle/README.md).
+
+---
+
+## 7. Testing y Calidad
 
 | Área | Comando |
 |------|---------|
@@ -174,7 +207,7 @@ Los tests de contratos cubren tolerancias de redondeo, integridad del carrito, c
 
 ---
 
-## 7. Seguridad y Buenas Prácticas
+## 8. Seguridad y Buenas Prácticas
 
 - Validación dual de totales: el contrato recalcula montos desde el carrito y exige coincidencia (±0.1% o 100 unidades base).
 - Conversión on-chain: si el cliente paga en EURT, el contrato convierte usando el oráculo y fija la tasa al crear la invoice.
@@ -185,16 +218,24 @@ Los tests de contratos cubren tolerancias de redondeo, integridad del carrito, c
 
 ---
 
-## 8. Resolución de Problemas
+## 9. Resolución de Problemas
 
-- **Rate desactualizado**: `cd oracle/scripts && npm run update-rate` o `npm run update-rate-manual 1.10`.
+- **Rate desactualizado**: 
+  - Automático: `cd oracle/scripts && npm run update-rate`
+  - Manual: `cd oracle/scripts && npm run update-rate-manual 1.10`
+  - Verificar que el rate esté en rango válido (0.8 - 1.5) y actualizado (< 24 horas)
+  - Ver documentación completa en [`oracle/README.md`](./oracle/README.md)
+- **Oracle API no responde**: 
+  - Verificar que el servidor esté corriendo: `cd oracle/api && npm start`
+  - Confirmar que `RPC_URL` y `EXCHANGE_RATE_ORACLE_ADDRESS` estén correctos en `.env`
+  - Revisar logs en `logs/oracle-api/`
 - **Fotos que no cargan**: revisar que el JWT de Pinata esté vigente y que el hash IPFS se haya guardado en el producto.
 - **Pagos rechazados**: confirmar balance + allowance del token seleccionado y que la invoice se generó con ese token.
 - **Webhooks Stripe**: iniciar `stripe listen` y validar `STRIPE_WEBHOOK_SECRET`.
 
 ---
 
-## 9. Próximos Pasos
+## 10. Próximos Pasos
 
 - Integrar feeds descentralizados (Chainlink) para el oráculo.
 - Automatizar actualización de rate con cron en infraestructura dedicada.
@@ -203,7 +244,7 @@ Los tests de contratos cubren tolerancias de redondeo, integridad del carrito, c
 
 ---
 
-## 10. Licencia y Créditos
+## 11. Licencia y Créditos
 
 Proyecto educativo orientado a prácticas de comercio electrónico Web3. Se distribuye bajo licencia MIT salvo indicación en submódulos específicos. Agradecimientos a la comunidad de OpenZeppelin, Foundry y Stripe por las herramientas que sustentan esta solución.
 
