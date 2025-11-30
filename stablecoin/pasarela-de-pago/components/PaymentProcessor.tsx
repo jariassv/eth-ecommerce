@@ -274,7 +274,9 @@ export default function PaymentProcessor({
 
   // Validar que el token seleccionado coincide con el token de la invoice
   const selectedTokenAddress = tokenType === 'USDT' ? usdTokenAddress : eurTokenAddress;
-  const tokenMismatch = invoice && selectedTokenAddress.toLowerCase() !== paymentTokenAddress.toLowerCase();
+  const tokenMismatch = Boolean(
+    invoice && selectedTokenAddress.toLowerCase() !== paymentTokenAddress.toLowerCase()
+  );
 
   if (loadingInvoice) {
     return (
@@ -464,7 +466,7 @@ export default function PaymentProcessor({
           <div>
             <button
               onClick={handlePay}
-              disabled={loading || tokenMismatch}
+              disabled={loading || Boolean(tokenMismatch)}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Procesando pago...' : `Pagar ${invoiceTokenSymbol === 'EURT' ? '€' : '$'}${amount.toFixed(2)} ${invoiceTokenSymbol}`}

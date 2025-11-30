@@ -87,7 +87,7 @@ export default function OrdersPage() {
         invoiceList.map(async (invoice) => {
           try {
             const items = await getInvoiceItems(invoice.invoiceId);
-            const detailedItems = await Promise.all(
+            const detailedItems: InvoiceItemDetail[] = await Promise.all(
               items.map(async (item) => {
                 const productIdStr = item.productId.toString();
                 let product = productCache.get(productIdStr);
@@ -113,10 +113,18 @@ export default function OrdersPage() {
               })
             );
 
-            return [invoice.invoiceId.toString(), detailedItems] as const;
+            const entry: [string, InvoiceItemDetail[]] = [
+              invoice.invoiceId.toString(),
+              detailedItems,
+            ];
+            return entry;
           } catch (err) {
             logger.error(`Error loading details for invoice ${invoice.invoiceId.toString()}:`, err);
-            return [invoice.invoiceId.toString(), []] as const;
+            const fallback: [string, InvoiceItemDetail[]] = [
+              invoice.invoiceId.toString(),
+              [],
+            ];
+            return fallback;
           }
         })
       );

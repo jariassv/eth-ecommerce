@@ -188,7 +188,7 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
   useEffect(() => {
     if (isOpen && address && isReady && total > BigInt(0)) {
       // Recargar tokens cuando cambie el rate o el total
-      loadTokens(total, rate);
+      loadTokens(total, rate ?? undefined);
     }
   }, [rate, total, address, isReady, isOpen, loadTokens]);
 
@@ -197,7 +197,7 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
     const handleTokenBalanceUpdate = () => {
       // Recargar tokens cuando se actualiza el balance
       if (isOpen && address && isReady && total > BigInt(0)) {
-        loadTokens(total, rate).catch(err => {
+        loadTokens(total, rate ?? undefined).catch(err => {
           logger.error('Error loading tokens after balance update:', err);
         });
       }
@@ -226,7 +226,7 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
     }
     
     // Recargar tokens con el amount correcto antes de validar
-    await loadTokens(total, rate);
+    await loadTokens(total, rate ?? undefined);
     
     // Obtener token seleccionado después de recargar
     const selectedToken = getSelectedToken();
@@ -246,7 +246,7 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
       setApproving(true);
       setError(null);
       try {
-        await approveToken(selectedCurrency, requiredAmount, total, rate);
+        await approveToken(selectedCurrency, requiredAmount, total, rate ?? undefined);
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 'Error al aprobar token';
         setError(errorMessage);
@@ -308,6 +308,8 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
       setProcessing(false);
     }
   };
+
+  const isRateLimited = Boolean(rateInfo && (!rateInfo.isValid || !rateInfo.isFresh));
 
   if (!isOpen) return null;
 
@@ -400,7 +402,7 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
                   // Recargar tokens después de un pequeño delay para evitar bloqueos
                   setTimeout(() => {
                     if (total > 0n) {
-                      loadTokens(total, rate).catch(err => {
+                      loadTokens(total, rate ?? undefined).catch(err => {
                         logger.error('Error loading tokens after currency change:', err);
                       });
                     }
@@ -415,12 +417,12 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
             </div>
 
             {/* Advertencias de rate */}
-            {rateInfo && (!rateInfo.isValid || !rateInfo.isFresh) && (
+            {isRateLimited && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <p className="text-xs text-yellow-800">
                   <strong>⚠ Advertencia:</strong> El rate de conversión no está disponible o está desactualizado.
-                  {!rateInfo.isValid && ' El rate está fuera del rango válido.'}
-                  {!rateInfo.isFresh && ' El rate no se ha actualizado en más de 24 horas.'}
+                  {rateInfo?.isValid === false && ' El rate está fuera del rango válido.'}
+                  {rateInfo?.isFresh === false && ' El rate no se ha actualizado en más de 24 horas.'}
                   Solo se puede pagar con USDT en este momento.
                 </p>
               </div>
@@ -478,7 +480,7 @@ export default function CartPreviewModal({ isOpen, onClose, onCartUpdate }: Cart
               </Link>
               <button
                 onClick={handleCheckout}
-                disabled={processing || approving || !isConnected || !address || loadingRate || (rateInfo && (!rateInfo.isValid || !rateInfo.isFresh))}
+                disabled={processing || approving || !isConnected || !address || Boolean(loadingRate) || isRateLimited}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg shadow-indigo-500/50 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {approving ? (
